@@ -1,6 +1,4 @@
-'use strict';
-
-import lib from './lib';
+import { escape, TemplateError, asyncIter, asyncFor, inOperator } from './lib';
 const supportsIterators =
 	typeof Symbol === 'function' &&
 	Symbol.iterator &&
@@ -214,7 +212,7 @@ function suppressValue(val, autoescape) {
 	val = val !== undefined && val !== null ? val : '';
 
 	if (autoescape && !(val instanceof SafeString)) {
-		val = lib.escape(val.toString());
+		val = escape(val.toString());
 	}
 
 	return val;
@@ -222,7 +220,7 @@ function suppressValue(val, autoescape) {
 
 function ensureDefined(val, lineno, colno) {
 	if (val === null || val === undefined) {
-		throw new lib.TemplateError(
+		throw new TemplateError(
 			'attempted to output null or undefined value',
 			lineno + 1,
 			colno + 1
@@ -264,15 +262,15 @@ function handleError(error, lineno, colno) {
 	if (error.lineno) {
 		return error;
 	} else {
-		return new lib.TemplateError(error, lineno, colno);
+		return new TemplateError(error, lineno, colno);
 	}
 }
 
 function asyncEach(arr, dimen, iter, cb) {
-	if (lib.isArray(arr)) {
+	if (Array.isArray(arr)) {
 		const len = arr.length;
 
-		lib.asyncIter(
+		asyncIter(
 			arr,
 			function iterCallback(item, i, next) {
 				switch (dimen) {
@@ -293,7 +291,7 @@ function asyncEach(arr, dimen, iter, cb) {
 			cb
 		);
 	} else {
-		lib.asyncFor(
+		asyncFor(
 			arr,
 			function iterCallback(key, val, i, len, next) {
 				iter(key, val, i, len, next);
@@ -317,7 +315,7 @@ function asyncAll(arr, dimen, func, cb) {
 		}
 	}
 
-	if (lib.isArray(arr)) {
+	if (Array.isArray(arr)) {
 		len = arr.length;
 		outputArr = new Array(len);
 
@@ -344,7 +342,7 @@ function asyncAll(arr, dimen, func, cb) {
 			}
 		}
 	} else {
-		const keys = lib.keys(arr || {});
+		const keys = Object.keys(arr || {});
 		len = keys.length;
 		outputArr = new Array(len);
 
@@ -360,7 +358,7 @@ function asyncAll(arr, dimen, func, cb) {
 }
 
 function fromIterator(arr) {
-	if (typeof arr !== 'object' || arr === null || lib.isArray(arr)) {
+	if (typeof arr !== 'object' || arr === null || Array.isArray(arr)) {
 		return arr;
 	} else if (supportsIterators && Symbol.iterator in arr) {
 		return Array.from(arr);
@@ -379,13 +377,13 @@ export default {
 	contextOrFrameLookup: contextOrFrameLookup,
 	callWrap: callWrap,
 	handleError: handleError,
-	isArray: lib.isArray,
-	keys: lib.keys,
+	isArray: Array.isArray,
+	keys: Object.keys,
 	SafeString,
 	copySafeness: copySafeness,
 	markSafe: markSafe,
 	asyncEach: asyncEach,
 	asyncAll: asyncAll,
-	inOperator: lib.inOperator,
+	inOperator,
 	fromIterator: fromIterator,
 };

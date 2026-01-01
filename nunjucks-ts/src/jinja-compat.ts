@@ -1,11 +1,10 @@
-function installCompat() {
-	'use strict';
-
+// Not event used?
+export function installCompat() {
 	/* eslint-disable camelcase */
 
 	// This must be called like `nunjucks.installCompat` so that `this`
 	// references the nunjucks instance
-	var runtime = this.runtime;
+	let runtime = this.runtime;
 	var lib = this.lib;
 	// Handle slim case where these 'modules' are excluded from the built source
 	var Compiler = this.compiler.Compiler;
@@ -236,13 +235,13 @@ function installCompat() {
 	};
 	const OBJECT_MEMBERS = {
 		items() {
-			return lib._entries(this);
+			return Object.entries(this);
 		},
 		values() {
-			return lib._values(this);
+			return Object.values(this);
 		},
 		keys() {
-			return lib.keys(this);
+			return Object.keys(this);
 		},
 		get(key, def) {
 			var output = this[key];
@@ -311,4 +310,4 @@ function installCompat() {
 	return uninstall;
 }
 
-module.exports = installCompat;
+export default installCompat;

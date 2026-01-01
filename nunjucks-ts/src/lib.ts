@@ -32,17 +32,14 @@ export const defined = (value: any) => value !== undefined;
 
 // -- END
 
-export const match = (filename: string, patterns: any) => {
-	if (!Array.isArray(patterns)) {
-		return false;
-	}
-	return patterns.some((pattern) => filename.match(pattern));
-};
+export const match = (filename: string, patterns: any) =>
+	Array.isArray(patterns) &&
+	patterns.some((pattern) => filename.match(pattern));
 
 export const hasOwnProp = (obj: Record<string, any>, k: any) =>
 	ObjProto.hasOwnProperty.call(obj, k);
 
-function _prettifyError(path, withInternals, err) {
+export function _prettifyError(path, withInternals, err) {
 	if (!err.Update) {
 		// not one of ours, cast it
 		err = new exports.TemplateError(err);
@@ -59,9 +56,7 @@ function _prettifyError(path, withInternals, err) {
 	return err;
 }
 
-exports._prettifyError = _prettifyError;
-
-function TemplateError(message, lineno, colno) {
+export function TemplateError(message, lineno, colno) {
 	var err;
 	var cause;
 
@@ -152,38 +147,24 @@ if (Object.setPrototypeOf) {
 	});
 }
 
-exports.TemplateError = TemplateError;
+export const isFunction = (obj) =>
+	ObjProto.toString.call(obj) === '[object Function]';
 
-function isFunction(obj) {
-	return ObjProto.toString.call(obj) === '[object Function]';
-}
+export const isArray = (obj) =>
+	ObjProto.toString.call(obj) === '[object Array]';
 
-exports.isFunction = isFunction;
+export const isString = (obj) =>
+	ObjProto.toString.call(obj) === '[object String]';
 
-function isArray(obj) {
-	return ObjProto.toString.call(obj) === '[object Array]';
-}
-
-exports.isArray = isArray;
-
-function isString(obj) {
-	return ObjProto.toString.call(obj) === '[object String]';
-}
-
-exports.isString = isString;
-
-function isObject(obj) {
-	return ObjProto.toString.call(obj) === '[object Object]';
-}
-
-exports.isObject = isObject;
+export const isObject = (obj) =>
+	ObjProto.toString.call(obj) === '[object Object]';
 
 /**
  * @param {string|number} attr
  * @returns {(string|number)[]}
  * @private
  */
-function _prepareAttributeParts(attr) {
+export function _prepareAttributeParts(attr) {
 	if (!attr) {
 		return [];
 	}
@@ -199,7 +180,7 @@ function _prepareAttributeParts(attr) {
  * @param {string}   attribute      Attribute value. Dots allowed.
  * @returns {function(Object): *}
  */
-function getAttrGetter(attribute) {
+export function getAttrGetter(attribute) {
 	const parts = _prepareAttributeParts(attribute);
 
 	return function attrGetter(item) {
@@ -221,9 +202,7 @@ function getAttrGetter(attribute) {
 	};
 }
 
-exports.getAttrGetter = getAttrGetter;
-
-function groupBy(obj, val, throwOnUndefined) {
+export function groupBy(obj, val, throwOnUndefined) {
 	const result = {};
 	const iterator = isFunction(val) ? val : getAttrGetter(val);
 	for (let i = 0; i < obj.length; i++) {
@@ -237,42 +216,25 @@ function groupBy(obj, val, throwOnUndefined) {
 	return result;
 }
 
-exports.groupBy = groupBy;
-
-function toArray(obj) {
-	return Array.prototype.slice.call(obj);
+export function toArray(obj) {
+	return ArrayProto.slice.call(obj);
 }
 
-exports.toArray = toArray;
-
-function without(array) {
-	const result = [];
-	if (!array) {
-		return result;
-	}
-	const length = array.length;
-	const contains = toArray(arguments).slice(1);
-	let index = -1;
-
-	while (++index < length) {
-		if (indexOf(contains, array[index]) === -1) {
-			result.push(array[index]);
-		}
+export function without<T>(array: T[] = [], ...contains: T[]) {
+	const result: T[] = [];
+	for (const item of array) {
+		if (!contains.includes(item)) result.push(item);
 	}
 	return result;
 }
 
-exports.without = without;
-
-function repeat(char_, n) {
-	var str = '';
+export const repeat = (char_: string, n: number) => {
+	let str: string = '';
 	for (let i = 0; i < n; i++) {
 		str += char_;
 	}
 	return str;
-}
-
-exports.repeat = repeat;
+};
 
 function each(obj, func, context) {
 	if (obj == null) {
@@ -289,29 +251,7 @@ function each(obj, func, context) {
 }
 
 exports.each = each;
-
-function map(obj, func) {
-	var results = [];
-	if (obj == null) {
-		return results;
-	}
-
-	if (ArrayProto.map && obj.map === ArrayProto.map) {
-		return obj.map(func);
-	}
-
-	for (let i = 0; i < obj.length; i++) {
-		results[results.length] = func(obj[i], i);
-	}
-
-	if (obj.length === +obj.length) {
-		results.length = obj.length;
-	}
-
-	return results;
-}
-
-exports.map = map;
+export const map = ArrayProto.map;
 
 function asyncIter(arr, iter, cb) {
 	let i = -1;
@@ -331,8 +271,8 @@ function asyncIter(arr, iter, cb) {
 
 exports.asyncIter = asyncIter;
 
-function asyncFor(obj, iter, cb) {
-	const keys = keys_(obj || {});
+export function asyncFor(obj: Record<string, any>, iter, cb) {
+	const keys = Object.keys(obj || {});
 	const len = keys.length;
 	let i = -1;
 
@@ -350,29 +290,13 @@ function asyncFor(obj, iter, cb) {
 	next();
 }
 
-exports.asyncFor = asyncFor;
-
-export const indexOf = (arr: any[], searchElement: any, fromIndex: number) =>
-	Array.prototype.indexOf.call(arr || [], searchElement, fromIndex);
-
-export const keys_ = (obj: Record<string, any>) => {
-	const arr = [];
-	for (let k in obj) {
-		if (hasOwnProp(obj, k)) {
-			arr.push(k);
-		}
-	}
-	return arr;
-};
-
-export const _entries = (obj: Record<string, any>) =>
-	keys_(obj).map((k) => [k, obj[k]]);
-
-export const _values = (obj: Record<string, any>) =>
-	keys_(obj).map((k) => obj[k]);
+export const indexOf = ArrayProto.indexOf;
+export const keys_ = Object.keys;
+export const _entries = Object.entries;
+export const _values = Object.values;
 
 export function inOperator(key: string, val: any) {
-	if (isArray(val) || isString(val)) {
+	if (Array.isArray(val) || isString(val)) {
 		return val.indexOf(key) !== -1;
 	} else if (isObject(val)) {
 		return key in val;

@@ -1,10 +1,8 @@
-var nodes = require('./nodes');
-var lib = require('./lib');
+import nodes from './nodes';
+import { indexOf } from './lib';
 
-var sym = 0;
-function gensym() {
-	return 'hole_' + sym++;
-}
+let sym = 0;
+const gensym = () => 'hole_' + sym++;
 
 // copy-on-write version of map
 function mapCOW(arr, func) {
@@ -82,7 +80,7 @@ function _liftFilters(node, asyncFilters, prop) {
 			return descNode;
 		} else if (
 			(descNode instanceof nodes.Filter &&
-				lib.indexOf(asyncFilters, descNode.name.value) !== -1) ||
+				indexOf(asyncFilters, descNode.name.value) !== -1) ||
 			descNode instanceof nodes.CallExtensionAsync
 		) {
 			symbol = new nodes.Symbol(descNode.lineno, descNode.colno, gensym());
@@ -207,12 +205,8 @@ function convertStatements(ast) {
 	});
 }
 
-function cps(ast, asyncFilters) {
+export function transform(ast, asyncFilters = []) {
 	return convertStatements(liftSuper(liftFilters(ast, asyncFilters)));
-}
-
-function transform(ast, asyncFilters) {
-	return cps(ast, asyncFilters || []);
 }
 
 // var parser = require('./parser');
@@ -220,6 +214,6 @@ function transform(ast, asyncFilters) {
 // var ast = transform(parser.parse(src, [new FooExtension()]), ['bar']);
 // nodes.printNodes(ast);
 
-module.exports = {
-	transform: transform,
+export default {
+	transform,
 };
