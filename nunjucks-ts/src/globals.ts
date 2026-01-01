@@ -54,7 +54,10 @@ function globals() {
 	};
 }
 
-export function precompileGlobal(templates: any[], opts = {}) {
+export function precompileGlobal(
+	templates: any[],
+	opts?: { isFunction: boolean }
+) {
 	let out = '';
 
 	for (let i: number = 0; i < templates.length; i++) {
@@ -70,7 +73,7 @@ export function precompileGlobal(templates: any[], opts = {}) {
 			template +
 			'\n})();\n';
 
-		if ('asFunction' in opts && opts.asFunction) {
+		if (opts?.isFunction) {
 			out +=
 				'return function(ctx, cb) { return nunjucks.render(' +
 				name +

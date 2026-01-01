@@ -1,61 +1,69 @@
 import { indexOf } from './lib';
 
-const whitespaceChars = ' \n\t\r\u00A0';
-const delimChars = '()[]{}%*-+~/#,:|.<>=!';
-const intChars = '0123456789';
+export const whitespaceChars = ' \n\t\r\u00A0';
+export const delimChars = '()[]{}%*-+~/#,:|.<>=!';
+export const intChars = '0123456789';
 
-const BLOCK_START = '{%';
-const BLOCK_END = '%}';
-const VARIABLE_START = '{{';
-const VARIABLE_END = '}}';
-const COMMENT_START = '{#';
-const COMMENT_END = '#}';
+export const BLOCK_START = '{%';
+export const BLOCK_END = '%}';
+export const VARIABLE_START = '{{';
+export const VARIABLE_END = '}}';
+export const COMMENT_START = '{#';
+export const COMMENT_END = '#}';
 
-const TOKEN_STRING = 'string';
-const TOKEN_WHITESPACE = 'whitespace';
-const TOKEN_DATA = 'data';
-const TOKEN_BLOCK_START = 'block-start';
-const TOKEN_BLOCK_END = 'block-end';
-const TOKEN_VARIABLE_START = 'variable-start';
-const TOKEN_VARIABLE_END = 'variable-end';
-const TOKEN_COMMENT = 'comment';
-const TOKEN_LEFT_PAREN = 'left-paren';
-const TOKEN_RIGHT_PAREN = 'right-paren';
-const TOKEN_LEFT_BRACKET = 'left-bracket';
-const TOKEN_RIGHT_BRACKET = 'right-bracket';
-const TOKEN_LEFT_CURLY = 'left-curly';
-const TOKEN_RIGHT_CURLY = 'right-curly';
-const TOKEN_OPERATOR = 'operator';
-const TOKEN_COMMA = 'comma';
-const TOKEN_COLON = 'colon';
-const TOKEN_TILDE = 'tilde';
-const TOKEN_PIPE = 'pipe';
-const TOKEN_INT = 'int';
-const TOKEN_FLOAT = 'float';
-const TOKEN_BOOLEAN = 'boolean';
-const TOKEN_NONE = 'none';
-const TOKEN_SYMBOL = 'symbol';
-const TOKEN_SPECIAL = 'special';
-const TOKEN_REGEX = 'regex';
+export const TOKEN_STRING = 'string';
+export const TOKEN_WHITESPACE = 'whitespace';
+export const TOKEN_DATA = 'data';
+export const TOKEN_BLOCK_START = 'block-start';
+export const TOKEN_BLOCK_END = 'block-end';
+export const TOKEN_VARIABLE_START = 'variable-start';
+export const TOKEN_VARIABLE_END = 'variable-end';
+export const TOKEN_COMMENT = 'comment';
+export const TOKEN_LEFT_PAREN = 'left-paren';
+export const TOKEN_RIGHT_PAREN = 'right-paren';
+export const TOKEN_LEFT_BRACKET = 'left-bracket';
+export const TOKEN_RIGHT_BRACKET = 'right-bracket';
+export const TOKEN_LEFT_CURLY = 'left-curly';
+export const TOKEN_RIGHT_CURLY = 'right-curly';
+export const TOKEN_OPERATOR = 'operator';
+export const TOKEN_COMMA = 'comma';
+export const TOKEN_COLON = 'colon';
+export const TOKEN_TILDE = 'tilde';
+export const TOKEN_PIPE = 'pipe';
+export const TOKEN_INT = 'int';
+export const TOKEN_FLOAT = 'float';
+export const TOKEN_BOOLEAN = 'boolean';
+export const TOKEN_NONE = 'none';
+export const TOKEN_SYMBOL = 'symbol';
+export const TOKEN_SPECIAL = 'special';
+export const TOKEN_REGEX = 'regex';
 
-function token(type, value, lineno, colno) {
-	return {
-		type: type,
-		value: value,
-		lineno: lineno,
-		colno: colno,
-	};
+const token = (type: string, value: any, lineno: number, colno: number) => ({
+	type: type,
+	value: value,
+	lineno: lineno,
+	colno: colno,
+});
+
+interface ITokenizerOpts {
+	trimBlocks: boolean;
+	lstripBlocks: boolean;
+	tags: Record<string, any>;
 }
-
 class Tokenizer {
-	constructor(str, opts) {
+	str: string = '';
+	index: number = 0;
+	len: number = 0;
+	lineno: number = 0;
+	colno: number = 0;
+	inCode: boolean = false;
+	trimBlocks: boolean = false;
+	lstripBlocks: boolean = false;
+	tags: Record<string, any>;
+	src: any;
+	constructor(str: string, opts: ITokenizerOpts) {
 		this.str = str;
-		this.index = 0;
 		this.len = str.length;
-		this.lineno = 0;
-		this.colno = 0;
-
-		this.in_code = false;
 
 		opts = opts || {};
 
@@ -73,12 +81,12 @@ class Tokenizer {
 		this.lstripBlocks = !!opts.lstripBlocks;
 	}
 
-	nextToken() {
+	nextToken(): any {
 		let lineno = this.lineno;
 		let colno = this.colno;
-		let tok;
+		let tok: string | null;
 
-		if (this.in_code) {
+		if (this.inCode) {
 			// Otherwise, if we are in a block parse it as code
 			let cur = this.current();
 
@@ -101,7 +109,7 @@ class Tokenizer {
 				// delimiter characters (%{}[] etc), and our code always
 				// breaks on delimiters so we can assume the token parsing
 				// doesn't consume these elsewhere
-				this.in_code = false;
+				this.inCode = false;
 				if (this.trimBlocks) {
 					cur = this.current();
 					if (cur === '\n') {
@@ -125,7 +133,7 @@ class Tokenizer {
 				(tok = this._extractString('-' + this.tags.VARIABLE_END))
 			) {
 				// Special check for variable end tag (see above)
-				this.in_code = false;
+				this.inCode = false;
 				return token(TOKEN_VARIABLE_END, tok, lineno, colno);
 			} else if (cur === 'r' && this.str.charAt(this.index + 1) === '/') {
 				// Skip past 'r/'.
@@ -173,12 +181,12 @@ class Tokenizer {
 				let curComplex = cur + this.current();
 				let type;
 
-				if (indexOf(complexOps, curComplex) !== -1) {
+				if (indexOf(complexOps, Number(curComplex)) !== -1) {
 					this.forward();
 					cur = curComplex;
 
 					// See if this is a strict equality/inequality comparator
-					if (indexOf(complexOps, curComplex + this.current()) !== -1) {
+					if (indexOf(complexOps, Number(curComplex + this.current())) !== -1) {
 						cur = curComplex + this.current();
 						this.forward();
 					}
@@ -225,7 +233,7 @@ class Tokenizer {
 				// text and parse it
 				tok = this._extractUntil(whitespaceChars + delimChars);
 
-				if (tok.match(/^[-+]?[0-9]+$/)) {
+				if (tok && tok.match(/^[-+]?[0-9]+$/)) {
 					if (this.current() === '.') {
 						this.forward();
 						let dec = this._extract(intChars);
@@ -233,7 +241,7 @@ class Tokenizer {
 					} else {
 						return token(TOKEN_INT, tok, lineno, colno);
 					}
-				} else if (tok.match(/^(true|false)$/)) {
+				} else if (tok && tok.match(/^(true|false)$/)) {
 					return token(TOKEN_BOOLEAN, tok, lineno, colno);
 				} else if (tok === 'none') {
 					return token(TOKEN_NONE, tok, lineno, colno);
@@ -268,13 +276,13 @@ class Tokenizer {
 				(tok = this._extractString(this.tags.BLOCK_START + '-')) ||
 				(tok = this._extractString(this.tags.BLOCK_START))
 			) {
-				this.in_code = true;
+				this.inCode = true;
 				return token(TOKEN_BLOCK_START, tok, lineno, colno);
 			} else if (
 				(tok = this._extractString(this.tags.VARIABLE_START + '-')) ||
 				(tok = this._extractString(this.tags.VARIABLE_START))
 			) {
-				this.in_code = true;
+				this.inCode = true;
 				return token(TOKEN_VARIABLE_START, tok, lineno, colno);
 			} else {
 				tok = '';
@@ -305,8 +313,10 @@ class Tokenizer {
 							this.lstripBlocks &&
 							this._matches(this.tags.BLOCK_START) &&
 							this.colno > 0 &&
+							tok &&
 							this.colno <= tok.length
 						) {
+							if (!tok) return;
 							let lastLine = tok.slice(-this.colno);
 							if (/^\s+$/.test(lastLine)) {
 								// Remove block leading whitespace from beginning of the string
@@ -324,7 +334,7 @@ class Tokenizer {
 						if (!inComment) {
 							throw new Error('unexpected end of comment');
 						}
-						tok += this._extractString(this.tags.COMMENT_END);
+						if (tok) tok += this._extractString(this.tags.COMMENT_END);
 						break;
 					} else {
 						// It does not match any tag, so add the character and
@@ -348,7 +358,7 @@ class Tokenizer {
 		}
 	}
 
-	_parseString(delimiter) {
+	_parseString(delimiter: string) {
 		this.forward();
 
 		let str = '';
@@ -382,16 +392,12 @@ class Tokenizer {
 		return str;
 	}
 
-	_matches(str) {
-		if (this.index + str.length > this.len) {
-			return null;
-		}
-
-		let m = this.str.slice(this.index, this.index + str.length);
-		return m === str;
+	_matches(str: string) {
+		if (this.index + str.length > this.len) return null;
+		return this.str.slice(this.index, this.index + str.length) === str;
 	}
 
-	_extractString(str) {
+	_extractString(str: string) {
 		if (this._matches(str)) {
 			this.forwardN(str.length);
 			return str;
@@ -399,19 +405,19 @@ class Tokenizer {
 		return null;
 	}
 
-	_extractUntil(charString) {
+	_extractUntil(charString: string) {
 		// Extract all non-matching chars, with the default matching set
 		// to everything
 		return this._extractMatching(true, charString || '');
 	}
 
-	_extract(charString) {
+	_extract(charString: string) {
 		// Extract all matching chars (no default, so charString must be
 		// explicit)
 		return this._extractMatching(false, charString);
 	}
 
-	_extractMatching(breakOnMatch, charString) {
+	_extractMatching(breakOnMatch: boolean, charString: string) {
 		// Pull out characters until a breaking char is hit.
 		// If breakOnMatch is false, a non-matching char stops it.
 		// If breakOnMatch is true, a matching char stops it.
@@ -447,7 +453,7 @@ class Tokenizer {
 		return '';
 	}
 
-	_extractRegex(regex) {
+	_extractRegex(regex: RegExp) {
 		let matches = this.currentStr().match(regex);
 		if (!matches) {
 			return null;
@@ -463,7 +469,7 @@ class Tokenizer {
 		return this.index >= this.len;
 	}
 
-	forwardN(n) {
+	forwardN(n: number) {
 		for (let i = 0; i < n; i++) {
 			this.forward();
 		}
@@ -471,7 +477,6 @@ class Tokenizer {
 
 	forward() {
 		this.index++;
-
 		if (this.previous() === '\n') {
 			this.lineno++;
 			this.colno = 0;
@@ -480,7 +485,7 @@ class Tokenizer {
 		}
 	}
 
-	backN(n) {
+	backN(n: number) {
 		for (let i = 0; i < n; i++) {
 			this.back();
 		}
@@ -525,34 +530,7 @@ class Tokenizer {
 }
 
 export default {
-	lex(src, opts) {
-		return new Tokenizer(src, opts);
+	lex(str: string, opts: ITokenizerOpts) {
+		return new Tokenizer(str, opts);
 	},
-
-	TOKEN_STRING: TOKEN_STRING,
-	TOKEN_WHITESPACE: TOKEN_WHITESPACE,
-	TOKEN_DATA: TOKEN_DATA,
-	TOKEN_BLOCK_START: TOKEN_BLOCK_START,
-	TOKEN_BLOCK_END: TOKEN_BLOCK_END,
-	TOKEN_VARIABLE_START: TOKEN_VARIABLE_START,
-	TOKEN_VARIABLE_END: TOKEN_VARIABLE_END,
-	TOKEN_COMMENT: TOKEN_COMMENT,
-	TOKEN_LEFT_PAREN: TOKEN_LEFT_PAREN,
-	TOKEN_RIGHT_PAREN: TOKEN_RIGHT_PAREN,
-	TOKEN_LEFT_BRACKET: TOKEN_LEFT_BRACKET,
-	TOKEN_RIGHT_BRACKET: TOKEN_RIGHT_BRACKET,
-	TOKEN_LEFT_CURLY: TOKEN_LEFT_CURLY,
-	TOKEN_RIGHT_CURLY: TOKEN_RIGHT_CURLY,
-	TOKEN_OPERATOR: TOKEN_OPERATOR,
-	TOKEN_COMMA: TOKEN_COMMA,
-	TOKEN_COLON: TOKEN_COLON,
-	TOKEN_TILDE: TOKEN_TILDE,
-	TOKEN_PIPE: TOKEN_PIPE,
-	TOKEN_INT: TOKEN_INT,
-	TOKEN_FLOAT: TOKEN_FLOAT,
-	TOKEN_BOOLEAN: TOKEN_BOOLEAN,
-	TOKEN_NONE: TOKEN_NONE,
-	TOKEN_SYMBOL: TOKEN_SYMBOL,
-	TOKEN_SPECIAL: TOKEN_SPECIAL,
-	TOKEN_REGEX: TOKEN_REGEX,
 };

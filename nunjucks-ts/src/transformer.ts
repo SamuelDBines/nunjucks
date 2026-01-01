@@ -1,12 +1,32 @@
-import nodes from './nodes';
+import {
+	Node,
+	If,
+	For,
+	NodeList,
+	AsyncEach,
+	AsyncAll,
+	IfAsync,
+	Filter,
+	FilterAsync,
+	Block,
+	FunCall,
+	Output,
+	CallExtension,
+	CallExtensionAsync,
+	Super,
+	Symbol,
+	NodeCreator,
+} from './nodes';
+
 import { indexOf } from './lib';
+
+type Walker = (node: Node) => Node | void | null | undefined;
 
 let sym = 0;
 const gensym = () => 'hole_' + sym++;
 
-// copy-on-write version of map
-function mapCOW(arr, func) {
-	var res = null;
+function mapCOW<T>(arr: readonly T[], func: (item: T) => T): readonly T[] {
+	let res: T[] | null = null;
 	for (let i = 0; i < arr.length; i++) {
 		const item = func(arr[i]);
 
@@ -22,176 +42,181 @@ function mapCOW(arr, func) {
 	return res || arr;
 }
 
-function walk(ast, func, depthFirst) {
-	if (!(ast instanceof nodes.Node)) {
-		return ast;
-	}
+function walk<T>(ast: T, func: Walker, depthFirst: boolean): T {
+	if (!(ast instanceof Node)) return ast;
+
+	let node = ast as unknown as Node;
 
 	if (!depthFirst) {
-		const astT = func(ast);
-
-		if (astT && astT !== ast) {
-			return astT;
+		const nodeT = func(node);
+		if (nodeT && nodeT !== node) {
+			return nodeT as unknown as T;
 		}
 	}
 
-	if (ast instanceof nodes.NodeList) {
-		const children = mapCOW(ast.children, (node) =>
-			walk(node, func, depthFirst)
+	if (node instanceof NodeList) {
+		const children = mapCOW(
+			node.children,
+			(child) => walk(child, func, depthFirst) as unknown as Node
 		);
 
-		if (children !== ast.children) {
-			ast = new nodes[ast.typename](ast.lineno, ast.colno, children);
+		if (children !== node.children) {
+			const __NODE = NodeCreator(node.__typename);
+			node = new __NODE(node.lineno, node.colno, children);
 		}
-	} else if (ast instanceof nodes.CallExtension) {
-		const args = walk(ast.args, func, depthFirst);
-		const contentArgs = mapCOW(ast.contentArgs, (node) =>
+	} else if (node instanceof CallExtension) {
+		const args = walk(node.args, func, depthFirst);
+		const contentArgs = mapCOW(node.contentArgs, (node) =>
 			walk(node, func, depthFirst)
 		);
 
-		if (args !== ast.args || contentArgs !== ast.contentArgs) {
-			ast = new nodes[ast.typename](ast.extName, ast.prop, args, contentArgs);
+		if (args !== node.args || contentArgs !== node.contentArgs) {
+			const __NODE = NodeCreator(node.__typename);
+			node = __NODE(node.extName, node.prop, args, contentArgs);
 		}
 	} else {
-		const props = ast.fields.map((field) => ast[field]);
+		const props = node.fields.map((field) => node[field]);
 		const propsT = mapCOW(props, (prop) => walk(prop, func, depthFirst));
 
 		if (propsT !== props) {
-			ast = new nodes[ast.typename](ast.lineno, ast.colno);
+			const __NODE = NodeCreator(node.typename);
+			node = new __NODE(node.lineno, node.colno);
 			propsT.forEach((prop, i) => {
-				ast[ast.fields[i]] = prop;
+				node[node.fields[i]] = prop;
 			});
 		}
 	}
 
-	return depthFirst ? func(ast) || ast : ast;
+	return (depthFirst ? (func(node) as Node) || node : node) as unknown as T;
 }
 
-function depthWalk(ast, func) {
+function depthWalk<T>(ast: T, func: Walker): T {
 	return walk(ast, func, true);
 }
 
-function _liftFilters(node, asyncFilters, prop) {
-	var children = [];
+function _liftFilters(
+	node: Node,
+	asyncFilters: readonly string[],
+	prop?: string
+): Node {
+	const children: Node[] = [];
 
-	var walked = depthWalk(prop ? node[prop] : node, (descNode) => {
-		let symbol;
-		if (descNode instanceof nodes.Block) {
+	const walked = depthWalk(prop ? (node as any)[prop] : node, (descNode) => {
+		let symbol: Symbol | undefined;
+
+		if (descNode instanceof Block) {
 			return descNode;
-		} else if (
-			(descNode instanceof nodes.Filter &&
-				indexOf(asyncFilters, descNode.name.value) !== -1) ||
-			descNode instanceof nodes.CallExtensionAsync
-		) {
-			symbol = new nodes.Symbol(descNode.lineno, descNode.colno, gensym());
+		}
+
+		const isAsyncFilter =
+			descNode instanceof Filter &&
+			indexOf(asyncFilters as any, descNode.name.value) !== -1;
+
+		if (isAsyncFilter || descNode instanceof CallExtensionAsync) {
+			symbol = new Symbol(descNode.lineno, descNode.colno, gensym());
 
 			children.push(
-				new nodes.FilterAsync(
+				new FilterAsync(
 					descNode.lineno,
 					descNode.colno,
-					descNode.name,
-					descNode.args,
+					(descNode as any).name,
+					(descNode as any).args,
 					symbol
 				)
 			);
 		}
+
 		return symbol;
-	});
+	}) as unknown as Node;
 
 	if (prop) {
-		node[prop] = walked;
+		(node as any)[prop] = walked;
 	} else {
 		node = walked;
 	}
 
 	if (children.length) {
 		children.push(node);
-
-		return new nodes.NodeList(node.lineno, node.colno, children);
-	} else {
-		return node;
+		return new NodeList((node as any).lineno, (node as any).colno, children);
 	}
+
+	return node;
 }
 
-function liftFilters(ast, asyncFilters) {
+function liftFilters(ast: Node, asyncFilters: readonly string[] = []) {
 	return depthWalk(ast, (node) => {
-		if (node instanceof nodes.Output) {
+		if (node instanceof Output) {
 			return _liftFilters(node, asyncFilters);
-		} else if (node instanceof nodes.Set) {
+		} else if (node instanceof Set) {
 			return _liftFilters(node, asyncFilters, 'value');
-		} else if (node instanceof nodes.For) {
+		} else if (node instanceof For) {
 			return _liftFilters(node, asyncFilters, 'arr');
-		} else if (node instanceof nodes.If) {
+		} else if (node instanceof If) {
 			return _liftFilters(node, asyncFilters, 'cond');
-		} else if (node instanceof nodes.CallExtension) {
+		} else if (node instanceof CallExtension) {
 			return _liftFilters(node, asyncFilters, 'args');
-		} else {
-			return undefined;
 		}
+		return undefined;
 	});
 }
 
-function liftSuper(ast) {
+function liftSuper(ast: Node): Node {
 	return walk(ast, (blockNode) => {
-		if (!(blockNode instanceof nodes.Block)) {
-			return;
-		}
+		if (!(blockNode instanceof Block)) return;
 
 		let hasSuper = false;
 		const symbol = gensym();
 
 		blockNode.body = walk(blockNode.body, (node) => {
 			// eslint-disable-line consistent-return
-			if (node instanceof nodes.FunCall && node.name.value === 'super') {
+			if (node instanceof FunCall && node.name.value === 'super') {
 				hasSuper = true;
-				return new nodes.Symbol(node.lineno, node.colno, symbol);
+				return new Symbol(node.lineno, node.colno, symbol);
 			}
 		});
 
 		if (hasSuper) {
 			blockNode.body.children.unshift(
-				new nodes.Super(0, 0, blockNode.name, new nodes.Symbol(0, 0, symbol))
+				new Super(0, 0, blockNode.name, new Symbol(0, 0, symbol))
 			);
 		}
 	});
+	return ast;
 }
 
-function convertStatements(ast) {
+function convertStatements(ast: Node): Node {
 	return depthWalk(ast, (node) => {
-		if (!(node instanceof nodes.If) && !(node instanceof nodes.For)) {
+		if (!(node instanceof If) && !(node instanceof For)) {
 			return undefined;
 		}
 
-		let async = false;
+		let isAsync = false;
 		walk(node, (child) => {
 			if (
-				child instanceof nodes.FilterAsync ||
-				child instanceof nodes.IfAsync ||
-				child instanceof nodes.AsyncEach ||
-				child instanceof nodes.AsyncAll ||
-				child instanceof nodes.CallExtensionAsync
+				child instanceof FilterAsync ||
+				child instanceof IfAsync ||
+				child instanceof AsyncEach ||
+				child instanceof AsyncAll ||
+				child instanceof CallExtensionAsync
 			) {
-				async = true;
+				isAsync = true;
 				// Stop iterating by returning the node
 				return child;
 			}
 			return undefined;
 		});
 
-		if (async) {
-			if (node instanceof nodes.If) {
-				return new nodes.IfAsync(
+		if (isAsync) {
+			if (node instanceof If) {
+				return new IfAsync(
 					node.lineno,
 					node.colno,
 					node.cond,
 					node.body,
 					node.else_
 				);
-			} else if (
-				node instanceof nodes.For &&
-				!(node instanceof nodes.AsyncAll)
-			) {
-				return new nodes.AsyncEach(
+			} else if (node instanceof For && !(node instanceof AsyncAll)) {
+				return new AsyncEach(
 					node.lineno,
 					node.colno,
 					node.arr,
@@ -205,15 +230,9 @@ function convertStatements(ast) {
 	});
 }
 
-export function transform(ast, asyncFilters = []) {
+export function transform(
+	ast: Node,
+	asyncFilters: readonly string[] = []
+): Node {
 	return convertStatements(liftSuper(liftFilters(ast, asyncFilters)));
 }
-
-// var parser = require('./parser');
-// var src = 'hello {% foo %}{% endfoo %} end';
-// var ast = transform(parser.parse(src, [new FooExtension()]), ['bar']);
-// nodes.printNodes(ast);
-
-export default {
-	transform,
-};

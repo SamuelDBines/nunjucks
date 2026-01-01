@@ -1,24 +1,42 @@
-const path = require('path');
+import path from 'path';
+import { Environment } from './environment';
+import { Callback } from './types';
 
-module.exports = function express(env, app) {
-  function NunjucksView(name, opts) {
-    this.name = name;
-    this.path = name;
-    this.defaultEngine = opts.defaultEngine;
-    this.ext = path.extname(name);
-    if (!this.ext && !this.defaultEngine) {
-      throw new Error('No default engine was specified and no extension was provided.');
-    }
-    if (!this.ext) {
-      this.name += (this.ext = (this.defaultEngine[0] !== '.' ? '.' : '') + this.defaultEngine);
-    }
-  }
+interface NunjucksOpts {
+	name: string;
+	path: string;
+	defaultEngine: 'express';
+	ext: string;
+}
 
-  NunjucksView.prototype.render = function render(opts, cb) {
-    env.render(this.name, opts, cb);
-  };
+export function express(env: Environment, app: any) {
+	let name: string = '',
+		_path: string = '',
+		ext: string = '',
+		defaultEngine: 'express' = 'express';
 
-  app.set('view', NunjucksView);
-  app.set('nunjucksEnv', env);
-  return env;
-};
+	function NunjucksView(_name: string, opts: NunjucksOpts) {
+		name = _name;
+		_path = _name;
+		ext = path.extname(name);
+		if (!ext && !defaultEngine) {
+			throw new Error(
+				'No default engine was specified and no extension was provided.'
+			);
+		}
+		if (!ext) {
+			name += ext = (defaultEngine[0] !== '.' ? '.' : '') + defaultEngine;
+		}
+	}
+
+	NunjucksView.prototype.render = function render(
+		opts: NunjucksOpts,
+		cb: Callback
+	) {
+		env.render(this.name, opts, cb);
+	};
+
+	app.set('view', NunjucksView);
+	app.set('nunjucksEnv', env);
+	return env;
+}

@@ -1,8 +1,8 @@
 import fs from 'fs';
 import path from 'path';
-const { _prettifyError } = require('./lib');
-const compiler = require('./compiler');
-const { Environment } = require('./environment');
+import { _prettifyError, TemplateError } from './lib';
+import { compile } from './compiler';
+import { Environment, Template } from './environment';
 import { precompileGlobal } from './globals';
 
 function match(filename: string, patterns: RegExp) {
@@ -12,18 +12,31 @@ function match(filename: string, patterns: RegExp) {
 	return patterns.some((pattern) => filename.match(pattern));
 }
 
-type IPrecompileString = {
-	isString: boolean;
-	env: any;
-	wrapper: any;
-	name: string;
+type IPrecompileOpts = {
+	isString?: boolean; //
+	isFunction?: boolean; // default false
+	force?: boolean; // keep compiling on error (default false)
+	env?: Environment;
+	wrapper?: (templates: Template[], opts?: { isFunction: boolean }) => string;
+	name?: string; //name of the template (auto-generated when compiling a directory)
+	include?: string[];
+	exclude?: string[];
 };
-function precompileString(str: string, opts: IPrecompileString) {
+
+const precompileOpts: IPrecompileOpts = {
+	isString: true,
+	isFunction: false,
+	force: false,
+	wrapper: precompileGlobal,
+	env: new Environment([]),
+	exclude: [],
+	include: [],
+};
+
+function precompileString(str: string, opts?: IPrecompileOpts) {
 	opts = {
-		isString: opts?.isString || true,
-		env: opts.env || new Environment([]),
-		wrapper: opts?.wrapper || precompileGlobal,
-		name: opts?.name,
+		...precompileOpts,
+		...opts,
 	};
 
 	if (!opts.name) {
@@ -32,12 +45,11 @@ function precompileString(str: string, opts: IPrecompileString) {
 	return opts.wrapper([_precompile(str, opts.name, opts.env)], opts);
 }
 
-function precompile(input, opts) {
+function precompile(input, opts?: IPrecompileOpts) {
 	// The following options are available:
 	//
 	// * name: name of the template (auto-generated when compiling a directory)
-	// * isString: input is a string, not a file path
-	// * asFunction: generate a callable function
+
 	// * force: keep compiling on error
 	// * env: the Environment to use (gets extensions and async filters from it)
 	// * include: which file/folders to include (folders are auto-included, files are auto-excluded)
@@ -47,19 +59,18 @@ function precompile(input, opts) {
 	//       By default, templates are stored in a global variable used by the runtime.
 	//       A custom loader will be necessary to load your custom wrapper.
 
-	opts = opts || {};
-	const env = opts.env || new Environment([]);
-	const wrapper = opts.wrapper || precompileGlobal;
+	const env = opts?.env || new Environment([]);
+	const wrapper = opts?.wrapper || precompileGlobal;
 
-	if (opts.isString) {
+	if (opts?.isString) {
 		return precompileString(input, opts);
 	}
 
-	const pathStats = fs.existsSync(input) && fs.statSync(input);
+	const pathStats = fs.statSync(input);
 	const precompiled = [];
-	const templates = [];
+	const templates: Template[] = [];
 
-	function addTemplates(dir) {
+	function addTemplates(dir: string) {
 		fs.readdirSync(dir).forEach((file) => {
 			const filepath = path.join(dir, file);
 			let subpath = filepath.substr(path.join(input, '/').length);
@@ -105,9 +116,11 @@ function precompile(input, opts) {
 	return wrapper(precompiled, opts);
 }
 
-function _precompile(str: string, name, env) {
-	env = env || new Environment([]);
-
+export function _precompile(
+	str: string,
+	name: string,
+	env = new Environment([])
+) {
 	const asyncFilters = env.asyncFilters;
 	const extensions = env.extensionsList;
 	let template;
@@ -115,9 +128,11 @@ function _precompile(str: string, name, env) {
 	name = name.replace(/\\/g, '/');
 
 	try {
-		template = compiler.compile(str, asyncFilters, extensions, name, env.opts);
-	} catch (err) {
-		throw _prettifyError(name, false, err);
+		template = compile(str, asyncFilters, extensions, name, {
+			throwOnUndefined: env.throwOnUndefined,
+		});
+	} catch (err: any) {
+		throw _prettifyError(name, false, TemplateError(err));
 	}
 
 	return {

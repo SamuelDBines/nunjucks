@@ -11,19 +11,28 @@ const escapeMap = {
 	'<': '&lt;',
 	'>': '&gt;',
 	'\\': '&#92;',
-} as const;
+};
 
 type EscapeMap = typeof escapeMap;
 type EscapeChar = keyof typeof escapeMap;
 type EscapeEntity = (typeof escapeMap)[EscapeChar];
 
 const lookupEscape = (ch: EscapeChar): EscapeEntity => escapeMap[ch];
-export const escape = (val: string) => val.replace(escapeRegex, lookupEscape);
+export const escape = (val: string) =>
+	val.replace(escapeRegex, lookupEscape(val as EscapeChar));
 
-const supportsIterators =
-	typeof Symbol === 'function' &&
-	Symbol.iterator &&
-	typeof Array.from === 'function';
+const typeOfItems = {
+	undefined: 'undefined',
+	object: 'object',
+	boolean: 'boolean',
+	number: 'number',
+	bigint: 'bigint',
+	string: 'string',
+	symbol: 'symbol',
+	function: 'function',
+};
+
+export type TypeOfChar = keyof typeof typeOfItems;
 
 // -- TODO: Doesn't seem to be useds
 export const callable = (value: any) => typeof value === 'function';
@@ -32,6 +41,40 @@ export const defined = (value: any) => value !== undefined;
 
 // -- END
 
+export const dump = (obj: Record<any, any>, spaces?: string | number) =>
+	JSON.stringify(obj, null, spaces);
+
+// function waterfall(tasks, done) {
+//   tasks.reduce(
+//     (p, task, i) =>
+//       p.then((res) =>
+//         new Promise((resolve, reject) => {
+//           if (i === 0) task((err, out) => (err ? reject(err) : resolve(out)));
+//           else task(res, (err, out) => (err ? reject(err) : resolve(out)));
+//         })
+//       ),
+//     Promise.resolve(undefined)
+//   )
+//   .then((res) => done(null, res))
+//   .catch((err) => done(err));
+// }
+
+// function waterfall(tasks, done) {
+//   let i = 0;
+
+//   function next(err, res) {
+//     if (err) return done(err);
+//     const task = tasks[i++];
+//     if (!task) return done(null, res);
+
+//     // first task: (cb), others: (res, cb)
+//     if (task.length <= 1) task(next);
+//     else task(res, next);
+//   }
+
+//   next(null, undefined);
+// }
+
 export const match = (filename: string, patterns: any) =>
 	Array.isArray(patterns) &&
 	patterns.some((pattern) => filename.match(pattern));
@@ -39,101 +82,70 @@ export const match = (filename: string, patterns: any) =>
 export const hasOwnProp = (obj: Record<string, any>, k: any) =>
 	ObjProto.hasOwnProperty.call(obj, k);
 
-export function _prettifyError(path, withInternals, err) {
-	if (!err.Update) {
-		// not one of ours, cast it
-		err = new exports.TemplateError(err);
+export function _prettifyError(
+	path: string,
+	withInternals: boolean,
+	err: TemplateErr
+) {
+	if (!err.update) {
+		err = TemplateError(err);
 	}
-	err.Update(path);
+	err.update(path);
 
 	// Unless they marked the dev flag, show them a trace from here
 	if (!withInternals) {
 		const old = err;
-		err = new Error(old.message);
+		// err = new Error(old.message);
 		err.name = old.name;
 	}
 
 	return err;
 }
 
-export function TemplateError(message, lineno, colno) {
-	var err;
-	var cause;
+export type TemplateErr = Error & {
+	name: string;
+	lineno: number;
+	colno: number;
+	firstUpdate: boolean;
+	cause?: Error;
+	update: (path?: string) => TemplateErr;
+};
 
-	if (message instanceof Error) {
-		cause = message;
-		message = `${cause.name}: ${cause.message}`;
-	}
-
-	if (Object.setPrototypeOf) {
-		err = new Error(message);
-		Object.setPrototypeOf(err, TemplateError.prototype);
-	} else {
-		err = this;
-		Object.defineProperty(err, 'message', {
-			enumerable: false,
-			writable: true,
-			value: message,
-		});
-	}
-
-	Object.defineProperty(err, 'name', {
-		value: 'Template render error',
-	});
-
-	if (Error.captureStackTrace) {
-		Error.captureStackTrace(err, this.constructor);
-	}
-
-	let getStack;
-
-	if (cause) {
-		const stackDescriptor = Object.getOwnPropertyDescriptor(cause, 'stack');
-		getStack =
-			stackDescriptor && (stackDescriptor.get || (() => stackDescriptor.value));
-		if (!getStack) {
-			getStack = () => cause.stack;
-		}
-	} else {
-		const stack = new Error(message).stack;
-		getStack = () => stack;
-	}
-
-	Object.defineProperty(err, 'stack', {
-		get: () => getStack.call(err),
-	});
-
-	Object.defineProperty(err, 'cause', {
-		value: cause,
-	});
-
+export function TemplateError(
+	message: string | Error,
+	lineno: number = 0,
+	colno: number = 0
+): TemplateErr {
+	const cause = message instanceof Error ? message : undefined;
+	const msg = cause ? `${cause.name}: ${cause.message}` : String(message ?? '');
+	const err = new Error(msg, cause ? { cause } : undefined) as TemplateErr;
+	err.name = 'Template render error';
 	err.lineno = lineno;
 	err.colno = colno;
 	err.firstUpdate = true;
 
-	err.Update = function Update(path) {
-		let msg = '(' + (path || 'unknown path') + ')';
+	if (cause?.stack) {
+		Object.defineProperty(err, 'stack', {
+			configurable: true,
+			get() {
+				return cause.stack;
+			},
+		});
+	}
+	err.update = (path?: string) => {
+		let prefix = `(${path || 'unknown path'})`;
 
-		// only show lineno + colno next to path of template
-		// where error occurred
-		if (this.firstUpdate) {
-			if (this.lineno && this.colno) {
-				msg += ` [Line ${this.lineno}, Column ${this.colno}]`;
-			} else if (this.lineno) {
-				msg += ` [Line ${this.lineno}]`;
-			}
+		if (err.firstUpdate) {
+			if (err.lineno && err.colno)
+				prefix += ` [Line ${err.lineno}, Column ${err.colno}]`;
+			else if (err.lineno) prefix += ` [Line ${err.lineno}]`;
 		}
 
-		msg += '\n ';
-		if (this.firstUpdate) {
-			msg += ' ';
-		}
-
-		this.message = msg + (this.message || '');
-		this.firstUpdate = false;
-		return this;
+		prefix += '\n  '; // newline + indentation
+		err.message = prefix + (err.message || '');
+		err.firstUpdate = false;
+		return err;
 	};
-
 	return err;
 }
 
@@ -147,43 +159,25 @@ if (Object.setPrototypeOf) {
 	});
 }
 
-export const isFunction = (obj) =>
-	ObjProto.toString.call(obj) === '[object Function]';
+export const isFunction = (obj: unknown): obj is Function =>
+	typeof obj === typeOfItems.function;
 
-export const isArray = (obj) =>
-	ObjProto.toString.call(obj) === '[object Array]';
+export const isArray = (obj: unknown): obj is Array<any> => Array.isArray(obj);
 
-export const isString = (obj) =>
-	ObjProto.toString.call(obj) === '[object String]';
+export const isString = (obj: unknown): obj is string =>
+	typeof obj === typeOfItems.string;
 
-export const isObject = (obj) =>
+export const isObject = (obj: unknown): obj is Object =>
 	ObjProto.toString.call(obj) === '[object Object]';
 
-/**
- * @param {string|number} attr
- * @returns {(string|number)[]}
- * @private
- */
-export function _prepareAttributeParts(attr) {
-	if (!attr) {
-		return [];
-	}
+export const _prepareAttributeParts = (
+	attr: string | number
+): string[] | number[] => (typeof attr === 'string' ? attr.split('.') : [attr]);
 
-	if (typeof attr === 'string') {
-		return attr.split('.');
-	}
-
-	return [attr];
-}
-
-/**
- * @param {string}   attribute      Attribute value. Dots allowed.
- * @returns {function(Object): *}
- */
-export function getAttrGetter(attribute) {
+export function getAttrGetter(attribute: string): (obj: Object) => any {
 	const parts = _prepareAttributeParts(attribute);
 
-	return function attrGetter(item) {
+	return function (item: object) {
 		let _item = item;
 
 		for (let i = 0; i < parts.length; i++) {
@@ -192,7 +186,7 @@ export function getAttrGetter(attribute) {
 			// If item is not an object, and we still got parts to handle, it means
 			// that something goes wrong. Just roll out to undefined in that case.
 			if (hasOwnProp(_item, part)) {
-				_item = _item[part];
+				// _item = _item[part]; // TODO: FIX THIS
 			} else {
 				return undefined;
 			}
@@ -202,21 +196,28 @@ export function getAttrGetter(attribute) {
 	};
 }
 
-export function groupBy(obj, val, throwOnUndefined) {
-	const result = {};
+export function groupBy(
+	obj: Record<string | number, any>,
+	val: Function | string,
+	throwOnUndefined: boolean
+) {
+	const result: Record<string, any> = {};
 	const iterator = isFunction(val) ? val : getAttrGetter(val);
 	for (let i = 0; i < obj.length; i++) {
 		const value = obj[i];
 		const key = iterator(value, i);
-		if (key === undefined && throwOnUndefined === true) {
+		if (key === undefined && throwOnUndefined) {
 			throw new TypeError(`groupby: attribute "${val}" resolved to undefined`);
 		}
-		(result[key] || (result[key] = [])).push(value);
+		if (!result[key]) {
+			result[key] = [];
+		}
+		result[key]?.push(value);
 	}
 	return result;
 }
 
-export function toArray(obj) {
+export function toArray(obj: any) {
 	return ArrayProto.slice.call(obj);
 }
 
@@ -236,10 +237,8 @@ export const repeat = (char_: string, n: number) => {
 	return str;
 };
 
-function each(obj, func, context) {
-	if (obj == null) {
-		return;
-	}
+export function each(obj: any, func: Function, context: any) {
+	if (!obj) return;
 
 	if (ArrayProto.forEach && obj.forEach === ArrayProto.forEach) {
 		obj.forEach(func, context);
@@ -250,10 +249,7 @@ function each(obj, func, context) {
 	}
 }
 
-exports.each = each;
-export const map = ArrayProto.map;
-
-function asyncIter(arr, iter, cb) {
+export function asyncIter(arr: any, iter: Function, cb: Function) {
 	let i = -1;
 
 	function next() {
@@ -269,9 +265,11 @@ function asyncIter(arr, iter, cb) {
 	next();
 }
 
-exports.asyncIter = asyncIter;
-
-export function asyncFor(obj: Record<string, any>, iter, cb) {
+export function asyncFor(
+	obj: Record<string, any>,
+	iter: Function,
+	cb: () => any
+) {
 	const keys = Object.keys(obj || {});
 	const len = keys.length;
 	let i = -1;

@@ -1,4 +1,14 @@
-import { escape, TemplateError, asyncIter, asyncFor, inOperator } from './lib';
+import { Context } from './environment';
+import {
+	escape,
+	TemplateError,
+	asyncIter,
+	asyncFor,
+	inOperator,
+	isString,
+} from './lib';
+import { Callback } from './types';
+
 const supportsIterators =
 	typeof Symbol === 'function' &&
 	Symbol.iterator &&
@@ -7,22 +17,26 @@ const supportsIterators =
 // Frames keep track of scoping both at compile-time and run-time so
 // we know how to access variables. Block tags can introduce special
 // variables, for example.
-class Frame {
-	constructor(parent, isolateWrites) {
+export class Frame {
+	parent: Frame | null = null;
+	topLevel: boolean = false;
+	variables: Record<string, any>;
+	isolateWrites: any; // TODO: find out the type
+	constructor(parent: Frame | null, isolateWrites: any) {
 		this.variables = Object.create(null);
 		this.parent = parent;
-		this.topLevel = false;
+		this.topLevel = !!parent || false;
 		// if this is true, writes (set) should never propagate upwards past
 		// this frame to its parent (though reads may).
 		this.isolateWrites = isolateWrites;
 	}
 
-	set(name, val, resolveUp) {
+	set(name: string, val: any, resolveUp: boolean) {
 		// Allow variables with dots by automatically creating the
 		// nested structure
-		var parts = name.split('.');
-		var obj = this.variables;
-		var frame = this;
+		let parts = name.split('.');
+		let obj = this.variables;
+		let frame = this;
 
 		if (resolveUp) {
 			if ((frame = this.resolve(parts[0], true))) {
@@ -43,7 +57,7 @@ class Frame {
 		obj[parts[parts.length - 1]] = val;
 	}
 
-	get(name) {
+	get(name: string) {
 		var val = this.variables[name];
 		if (val !== undefined) {
 			return val;
@@ -51,7 +65,7 @@ class Frame {
 		return null;
 	}
 
-	lookup(name) {
+	lookup(name: string): Frame | null {
 		var p = this.parent;
 		var val = this.variables[name];
 		if (val !== undefined) {
@@ -60,16 +74,16 @@ class Frame {
 		return p && p.lookup(name);
 	}
 
-	resolve(name, forWrite) {
-		var p = forWrite && this.isolateWrites ? undefined : this.parent;
-		var val = this.variables[name];
-		if (val !== undefined) {
+	resolve(name: string, forWrite: boolean): Frame | null | undefined {
+		const p = forWrite && this.isolateWrites ? undefined : this.parent;
+		const val = this.variables[name];
+		if (!val) {
 			return this;
 		}
-		return p && p.resolve(name);
+		return p && p.resolve(name, forWrite);
 	}
 
-	push(isolateWrites) {
+	push(isolateWrites: any) {
 		return new Frame(this, isolateWrites);
 	}
 
@@ -78,8 +92,8 @@ class Frame {
 	}
 }
 
-function makeMacro(argNames, kwargNames, func) {
-	return function macro(...macroArgs) {
+function makeMacro(argNames: string[], kwargNames: string[], func: Function) {
+	return function macro(...macroArgs: any[]) {
 		var argCount = numArgs(macroArgs);
 		var args;
 		var kwargs = getKeywordArgs(macroArgs);
@@ -124,8 +138,8 @@ function makeKeywordArgs(obj: any) {
 const isKeywordArgs = (obj: object) =>
 	obj && Object.prototype.hasOwnProperty.call(obj, '__keywords');
 
-function getKeywordArgs(args) {
-	var len = args.length;
+function getKeywordArgs(args: any[]) {
+	let len = args.length;
 	if (len) {
 		const lastArg = args[len - 1];
 		if (isKeywordArgs(lastArg)) {
@@ -135,61 +149,26 @@ function getKeywordArgs(args) {
 	return {};
 }
 
-function numArgs(args) {
-	var len = args.length;
-	if (len === 0) {
-		return 0;
-	}
+function numArgs(args: any[]) {
+	const len = args.length;
+	if (len === 0) return 0;
 
 	const lastArg = args[len - 1];
 	if (isKeywordArgs(lastArg)) {
 		return len - 1;
-	} else {
-		return len;
 	}
+	return len;
 }
 
-// A SafeString object indicates that the string should not be
-// autoescaped. This happens magically because autoescaping only
-// occurs on primitive string objects.
-// -- SAFE STRING -- Problem useless right
-export interface SafeString {
-	val: string;
-	readonly length: number;
-	toString(): string;
-	valueOf(): string;
-	[Symbol.toPrimitive](): string;
-}
-
-export function SafeString(this: SafeString, val: string) {
-	if (typeof val !== 'string') return val;
-	this.val = val;
-}
-
-SafeString.prototype.toString = function (this: SafeString) {
-	return this.val;
-};
-SafeString.prototype.valueOf = function (this: SafeString) {
-	return this.val;
-};
-SafeString.prototype[Symbol.toPrimitive] = function (this: SafeString) {
-	return this.val;
-};
-Object.defineProperty(SafeString.prototype, 'length', {
-	get(this: SafeString) {
-		return this.val.length;
-	},
-});
-
-function copySafeness(dest, target) {
-	if (dest instanceof SafeString) {
-		return new SafeString(target);
+function copySafeness(dest: any, target: string): string {
+	if (isString(dest)) {
+		return target;
 	}
 	return target.toString();
 }
 
-function markSafe(val) {
-	var type = typeof val;
+function markSafe(val: string) {
+	const type = typeof val;
 
 	if (type === 'string') {
 		return new SafeString(val);
@@ -208,19 +187,16 @@ function markSafe(val) {
 	}
 }
 
-function suppressValue(val, autoescape) {
-	val = val !== undefined && val !== null ? val : '';
-
-	if (autoescape && !(val instanceof SafeString)) {
+export function suppressValue(val: string, autoescape: boolean) {
+	if (autoescape) {
 		val = escape(val.toString());
 	}
-
 	return val;
 }
 
-function ensureDefined(val, lineno, colno) {
+export function ensureDefined(val: any, lineno: number = 0, colno: number = 0) {
 	if (val === null || val === undefined) {
-		throw new TemplateError(
+		throw TemplateError(
 			'attempted to output null or undefined value',
 			lineno + 1,
 			colno + 1
@@ -229,19 +205,15 @@ function ensureDefined(val, lineno, colno) {
 	return val;
 }
 
-function memberLookup(obj, val) {
-	if (obj === undefined || obj === null) {
-		return undefined;
-	}
-
+export function memberLookup(obj: Record<string, any>, val: string) {
+	if (!obj) return undefined;
 	if (typeof obj[val] === 'function') {
-		return (...args) => obj[val].apply(obj, args);
+		return (...args: any[]) => obj[val].apply(obj, args);
 	}
-
 	return obj[val];
 }
 
-function callWrap(obj, name, context, args) {
+function callWrap(obj: any, name: string, context: Context, args: any[]) {
 	if (!obj) {
 		throw new Error(
 			'Unable to call `' + name + '`, which is undefined or falsey'
@@ -253,20 +225,17 @@ function callWrap(obj, name, context, args) {
 	return obj.apply(context, args);
 }
 
-function contextOrFrameLookup(context, frame, name) {
+function contextOrFrameLookup(context: any, frame: Frame, name: string) {
 	var val = frame.lookup(name);
 	return val !== undefined ? val : context.lookup(name);
 }
 
-function handleError(error, lineno, colno) {
-	if (error.lineno) {
-		return error;
-	} else {
-		return new TemplateError(error, lineno, colno);
-	}
+function handleError(error: any, lineno: number = 0, colno: number = 0) {
+	if (error.lineno) return error;
+	return TemplateError(error, lineno, colno);
 }
 
-function asyncEach(arr, dimen, iter, cb) {
+function asyncEach(arr: any[], dimen, iter: Function, cb: Callback) {
 	if (Array.isArray(arr)) {
 		const len = arr.length;
 
@@ -293,7 +262,7 @@ function asyncEach(arr, dimen, iter, cb) {
 	} else {
 		asyncFor(
 			arr,
-			function iterCallback(key, val, i, len, next) {
+			function iterCallback(key: string, val, i: number, len: number, next) {
 				iter(key, val, i, len, next);
 			},
 			cb
@@ -301,10 +270,10 @@ function asyncEach(arr, dimen, iter, cb) {
 	}
 }
 
-function asyncAll(arr, dimen, func, cb) {
-	var finished = 0;
-	var len;
-	var outputArr;
+function asyncAll(arr: any[], dimen, func: Function, cb: Callback) {
+	let finished = 0;
+	let len: number = 0;
+	let outputArr: any[] = [];
 
 	function done(i, output) {
 		finished++;
@@ -357,7 +326,7 @@ function asyncAll(arr, dimen, func, cb) {
 	}
 }
 
-function fromIterator(arr) {
+export function fromIterator(arr: any[]) {
 	if (typeof arr !== 'object' || arr === null || Array.isArray(arr)) {
 		return arr;
 	} else if (supportsIterators && Symbol.iterator in arr) {
@@ -367,23 +336,21 @@ function fromIterator(arr) {
 }
 
 export default {
-	Frame: Frame,
-	makeMacro: makeMacro,
-	makeKeywordArgs: makeKeywordArgs,
-	numArgs: numArgs,
-	suppressValue: suppressValue,
-	ensureDefined: ensureDefined,
-	memberLookup: memberLookup,
-	contextOrFrameLookup: contextOrFrameLookup,
-	callWrap: callWrap,
-	handleError: handleError,
+	Frame,
+	makeMacro,
+	makeKeywordArgs,
+	numArgs,
+	ensureDefined,
+	memberLookup,
+	contextOrFrameLookup,
+	callWrap,
+	handleError,
 	isArray: Array.isArray,
 	keys: Object.keys,
-	SafeString,
-	copySafeness: copySafeness,
-	markSafe: markSafe,
-	asyncEach: asyncEach,
-	asyncAll: asyncAll,
+	copySafeness,
+	markSafe,
+	asyncEach,
+	asyncAll,
 	inOperator,
-	fromIterator: fromIterator,
+	fromIterator,
 };

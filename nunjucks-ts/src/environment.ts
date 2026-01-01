@@ -4,32 +4,28 @@ import {
 	without,
 	isFunction,
 	asyncIter,
-	keys,
 	extend,
 	_prettifyError,
 	indexOf,
 	isString,
 	isObject,
 } from './lib';
-const compiler = require('./compiler');
-const filters = require('./filters');
-const {
+import * as compiler from './compiler';
+import * as filters from './filters';
+import {
+	Loader,
 	FileSystemLoader,
 	WebLoader,
 	PrecompiledLoader,
-} = require('./node-loaders');
+} from './loader';
 
-const globals = require('./globals');
-const { Obj, EmitterObj } = require('./object');
-const globalRuntime = require('./runtime');
-const { handleError, Frame } = globalRuntime;
-const expressApp = require('./express-app');
+import globals from './globals';
+import { Obj, EmitterObj } from './loader';
+import runtime from './runtime';
+import { Asap, Callback } from './types';
+import expressApp from './express-app';
 
-export type Asap = (fn: () => void) => void;
-export type Callback<E = unknown, R = unknown> = (
-	err: E | null,
-	res: R
-) => void;
+const { handleError, Frame } = runtime;
 
 export const asap: Asap =
 	typeof queueMicrotask === 'function'
@@ -46,13 +42,16 @@ export function callbackAsap<E, R>(
 	asap(() => cb(err, res));
 }
 
-/**
- * A no-op template, for use with {% include ignore missing %}
- */
 const noopTmplSrc = {
 	type: 'code',
 	obj: {
-		root(env, context, frame, runtime, cb) {
+		root(
+			env: Environment,
+			context: Context,
+			frame: Frame,
+			runtime,
+			cb: Callback
+		) {
 			try {
 				cb(null, '');
 			} catch (e) {
@@ -62,41 +61,34 @@ const noopTmplSrc = {
 	},
 };
 
-class Environment extends EmitterObj {
-	init(loaders, opts) {
-		// The dev flag determines the trace that'll be shown on errors.
-		// If set to true, returns the full trace from the error point,
-		// otherwise will return trace starting from Template.render
-		// (the full trace from within nunjucks may confuse developers using
-		//  the library)
-		// defaults to false
-		opts = this.opts = opts || {};
-		this.opts.dev = !!opts.dev;
+interface IEnvironmentOpts {
+	throwOnUndefined: boolean;
+	autoescape: boolean;
+	trimBlocks: boolean;
+	lstripBlocks: boolean;
+	dev: boolean;
+}
 
-		// The autoescape flag sets global autoescaping. If true,
-		// every string variable will be escaped by default.
-		// If false, strings can be manually escaped using the `escape` filter.
-		// defaults to true
-		this.opts.autoescape = opts.autoescape != null ? opts.autoescape : true;
+export class Environment extends EmitterObj {
+	throwOnUndefined: boolean = false;
+	trimBlocks: boolean = false;
+	lstripBlocks: boolean = false;
+	dev: boolean = true;
+	autoescape: boolean = true;
+	loaders: Loader[] = [new FileSystemLoader(['views'])];
+	asyncFilters: string[] = [];
+	constructor(loaders: Loader[] = [], opts?: IEnvironmentOpts) {
+		super(loaders, opts);
+		this.init(loaders, opts);
+	}
 
-		// If true, this will make the system throw errors if trying
-		// to output a null or undefined value
-		this.opts.throwOnUndefined = !!opts.throwOnUndefined;
-		this.opts.trimBlocks = !!opts.trimBlocks;
-		this.opts.lstripBlocks = !!opts.lstripBlocks;
-
-		this.loaders = [];
-
-		if (!loaders) {
-			// The filesystem loader is only available server-side
-			if (FileSystemLoader) {
-				this.loaders = [new FileSystemLoader('views')];
-			} else if (WebLoader) {
-				this.loaders = [new WebLoader('/views')];
-			}
-		} else {
-			this.loaders = Array.isArray(loaders) ? loaders : [loaders];
-		}
+	init(loaders: Loader[] = [], opts?: IEnvironmentOpts) {
+		this.dev = opts?.dev || true;
+		this.throwOnUndefined = opts?.throwOnUndefined || false;
+		this.trimBlocks = opts?.trimBlocks || false;
+		this.lstripBlocks = opts?.lstripBlocks || false;
+		this.autoescape = opts?.autoescape || true;
+		this.loaders = loaders;
 
 		// It's easy to use precompiled templates: just include them
 		// before you configure nunjucks and this will automatically
@@ -161,23 +153,23 @@ class Environment extends EmitterObj {
 		return this.extensions[name];
 	}
 
-	hasExtension(name) {
+	hasExtension(name: string): boolean {
 		return !!this.extensions[name];
 	}
 
-	addGlobal(name, value) {
+	addGlobal(name: string, value: any): Environment {
 		this.globals[name] = value;
 		return this;
 	}
 
-	getGlobal(name) {
+	getGlobal(name: string) {
 		if (typeof this.globals[name] === 'undefined') {
 			throw new Error('global not found: ' + name);
 		}
 		return this.globals[name];
 	}
 
-	addFilter(name, func, async) {
+	addFilter(name: string, func, async) {
 		var wrapped = func;
 
 		if (async) {
@@ -187,34 +179,34 @@ class Environment extends EmitterObj {
 		return this;
 	}
 
-	getFilter(name) {
+	getFilter(name: string) {
 		if (!this.filters[name]) {
 			throw new Error('filter not found: ' + name);
 		}
 		return this.filters[name];
 	}
 
-	addTest(name, func) {
+	addTest(name: string, func): Environment {
 		this.tests[name] = func;
 		return this;
 	}
 
-	getTest(name) {
+	getTest(name: string) {
 		if (!this.tests[name]) {
 			throw new Error('test not found: ' + name);
 		}
 		return this.tests[name];
 	}
 
-	resolveTemplate(loader, parentName, filename) {
-		var isRelative =
+	resolveTemplate(loader: Loader, parentName, filename) {
+		let isRelative =
 			loader.isRelative && parentName ? loader.isRelative(filename) : false;
 		return isRelative && loader.resolve
 			? loader.resolve(parentName, filename)
 			: filename;
 	}
 
-	getTemplate(name, eagerCompile, parentName, ignoreMissing, cb) {
+	getTemplate(name: string, eagerCompile, parentName, ignoreMissing, cb) {
 		var that = this;
 		var tmpl = null;
 		if (name && name.raw) {
@@ -364,23 +356,21 @@ class Environment extends EmitterObj {
 	}
 }
 
-class Context extends Obj {
-	init(ctx, blocks, env) {
-		// Has to be tied to an environment so we can tap into its globals.
-		this.env = env || new Environment();
+export class Context extends Obj {
+	init(ctx, blocks, env = new Environment()) {
+		this.env = env;
 
-		// Make a duplicate of ctx
 		this.ctx = extend({}, ctx);
 
 		this.blocks = {};
 		this.exported = [];
 
-		keys(blocks).forEach((name) => {
+		Object.keys(blocks).forEach((name) => {
 			this.addBlock(name, blocks[name]);
 		});
 	}
 
-	lookup(name) {
+	lookup(name: string) {
 		// This is one of the most called functions, so optimize for
 		// the typical case where the name isn't in the globals
 		if (name in this.env.globals && !(name in this.ctx)) {
@@ -390,7 +380,7 @@ class Context extends Obj {
 		}
 	}
 
-	setVariable(name, val) {
+	setVariable(name: string, val) {
 		this.ctx[name] = val;
 	}
 
@@ -398,13 +388,13 @@ class Context extends Obj {
 		return this.ctx;
 	}
 
-	addBlock(name, block) {
+	addBlock(name: string, block) {
 		this.blocks[name] = this.blocks[name] || [];
 		this.blocks[name].push(block);
 		return this;
 	}
 
-	getBlock(name) {
+	getBlock(name: string) {
 		if (!this.blocks[name]) {
 			throw new Error('unknown block "' + name + '"');
 		}
@@ -412,7 +402,7 @@ class Context extends Obj {
 		return this.blocks[name][0];
 	}
 
-	getSuper(env, name, block, frame, runtime, cb) {
+	getSuper(env, name: string, block, frame, runtime, cb) {
 		var idx = indexOf(this.blocks[name] || [], block);
 		var blk = this.blocks[name][idx + 1];
 		var context = this;
@@ -424,7 +414,7 @@ class Context extends Obj {
 		blk(env, context, frame, runtime, cb);
 	}
 
-	addExport(name) {
+	addExport(name: string) {
 		this.exported.push(name);
 	}
 
@@ -437,11 +427,17 @@ class Context extends Obj {
 	}
 }
 
-class Template extends Obj {
-	init(src, env, path, eagerCompile) {
-		this.env = env || new Environment();
+type ITemplateSrc = { type: 'code' | 'string'; obj: any };
+export class Template extends Obj {
+	init(
+		src: ITemplateSrc | string,
+		env = new Environment(),
+		path,
+		eagerCompile
+	) {
+		this.env = env;
 
-		if (isObject(src)) {
+		if (typeof src === ITemplateSrc) {
 			switch (src.type) {
 				case 'code':
 					this.tmplProps = src.obj;
@@ -508,7 +504,7 @@ class Template extends Obj {
 		let syncResult = null;
 		let didError = false;
 
-		this.rootRenderFunc(this.env, context, frame, globalRuntime, (err, res) => {
+		this.rootRenderFunc(this.env, context, frame, runtime, (err, res) => {
 			// TODO: this is actually a bug in the compiled template (because waterfall
 			// tasks are both not passing errors up the chain of callbacks AND are not
 			// causing a return from the top-most render function). But fixing that
@@ -568,7 +564,7 @@ class Template extends Obj {
 
 		// Run the rootRenderFunc to populate the context with exported vars
 		const context = new Context(ctx || {}, this.blocks, this.env);
-		this.rootRenderFunc(this.env, context, frame, globalRuntime, (err) => {
+		this.rootRenderFunc(this.env, context, frame, runtime, (err) => {
 			if (err) {
 				cb(err, null);
 			} else {

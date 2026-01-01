@@ -190,8 +190,8 @@ export function installCompat() {
 	}
 
 	const ARRAY_MEMBERS = {
-		pop(index) {
-			if (index === undefined) {
+		pop(index?: number) {
+			if (!index) {
 				return this.pop();
 			}
 			if (index >= this.length || index < 0) {
@@ -199,7 +199,7 @@ export function installCompat() {
 			}
 			return this.splice(index, 1);
 		},
-		append(element) {
+		append(element: any) {
 			return this.push(element);
 		},
 		remove(element) {
@@ -219,17 +219,17 @@ export function installCompat() {
 			}
 			return count;
 		},
-		index(element) {
+		index(element: any) {
 			var i;
 			if ((i = this.indexOf(element)) === -1) {
 				throw new Error('ValueError');
 			}
 			return i;
 		},
-		find(element) {
+		find(element: any) {
 			return this.indexOf(element);
 		},
-		insert(index, elem) {
+		insert(index: number = 0, elem: any) {
 			return this.splice(index, 0, elem);
 		},
 	};

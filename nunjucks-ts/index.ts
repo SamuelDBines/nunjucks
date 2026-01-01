@@ -1,39 +1,48 @@
-const lib = require('./src/lib');
-const { Environment, Template } = require('./src/environment');
-const Loader = require('./src/loader');
-const loaders = require('./src/loaders');
+import { isObject, TemplateErr } from './src/lib';
+import { Environment, Template, Context } from './src/environment';
+import {
+	Loader,
+	PrecompiledLoader,
+	WebLoader,
+	FileSystemLoader,
+	NodeResolveLoader,
+} from './src/loader';
+import { Callback } from './src/types';
+
+export * as lib from './src/lib';
+export * as lexer from './src/lexer';
+export * as parser from './src/parser';
+export * as nodes from './src/nodes';
+export * as compiler from './src/compiler';
+
 const precompile = require('./src/precompile');
-const compiler = require('./src/compiler');
-const parser = require('./src/parser');
-const lexer = require('./src/lexer');
+
 const runtime = require('./src/runtime');
-const nodes = require('./src/nodes');
 const installJinjaCompat = require('./src/jinja-compat');
 
 // A single instance of an environment, since this is so commonly used
-let e;
+let e: Environment;
 
-function configure(templatesPath, opts) {
-	opts = opts || {};
-	if (lib.isObject(templatesPath)) {
-		opts = templatesPath;
-		templatesPath = null;
+function configure(templatesPath: string, opts: any = {}) {
+	let tmp = opts;
+	if (isObject(templatesPath)) {
+		tmp = templatesPath;
 	}
 
 	let TemplateLoader;
-	if (loaders.FileSystemLoader) {
-		TemplateLoader = new loaders.FileSystemLoader(templatesPath, {
+	if (FileSystemLoader) {
+		TemplateLoader = new FileSystemLoader([templatesPath], {
 			watch: opts.watch,
 			noCache: opts.noCache,
 		});
-	} else if (loaders.WebLoader) {
-		TemplateLoader = new loaders.WebLoader(templatesPath, {
+	} else if (WebLoader) {
+		TemplateLoader = new WebLoader(templatesPath, {
 			useCache: opts.web && opts.web.useCache,
 			async: opts.web && opts.web.async,
 		});
 	}
-
-	e = new Environment(TemplateLoader, opts);
+	if (!TemplateLoader) return;
+	e = new Environment([TemplateLoader], opts);
 
 	if (opts && opts.express) {
 		e.express(opts.express);
@@ -42,24 +51,19 @@ function configure(templatesPath, opts) {
 	return e;
 }
 
-module.exports = {
-	Environment: Environment,
+export default {
+	Environment,
 	Template: Template,
 	Loader: Loader,
-	FileSystemLoader: loaders.FileSystemLoader,
-	NodeResolveLoader: loaders.NodeResolveLoader,
-	PrecompiledLoader: loaders.PrecompiledLoader,
-	WebLoader: loaders.WebLoader,
-	compiler: compiler,
-	parser: parser,
-	lexer: lexer,
+	FileSystemLoader: FileSystemLoader,
+	NodeResolveLoader: NodeResolveLoader,
+	PrecompiledLoader,
+	WebLoader,
 	runtime: runtime,
-	lib: lib,
-	nodes: nodes,
 	installJinjaCompat: installJinjaCompat,
 	configure: configure,
 	reset() {
-		e = undefined;
+		e = new Environment();
 	},
 	compile(src, env, path, eagerCompile) {
 		if (!e) {
@@ -67,14 +71,13 @@ module.exports = {
 		}
 		return new Template(src, env, path, eagerCompile);
 	},
-	render(name, ctx, cb) {
+	render(name: string, ctx: Context, cb: Callback) {
 		if (!e) {
 			configure();
 		}
-
 		return e.render(name, ctx, cb);
 	},
-	renderString(src, ctx, cb) {
+	renderString(src, ctx, cb: Callback) {
 		if (!e) {
 			configure();
 		}
