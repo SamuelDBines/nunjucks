@@ -53,7 +53,11 @@ export function default_(val: any, def: any, bool: boolean = false) {
 }
 export const d = default_;
 
-export function dictsort(val: any, caseSensitive: boolean, by) {
+export function dictsort(
+	val: any,
+	caseSensitive: boolean,
+	by: 'key' | 'value' = 'value'
+) {
 	if (!isObject(val)) {
 		throw TemplateError('dictsort filter: val must be an object');
 	}
@@ -61,7 +65,6 @@ export function dictsort(val: any, caseSensitive: boolean, by) {
 	let array = [];
 	// deliberately include properties from the object's prototype
 	for (let k in val) {
-		// eslint-disable-line guard-for-in, no-restricted-syntax
 		array.push([k, val[k]]);
 	}
 
@@ -105,7 +108,7 @@ export function forceescape(str: string) {
 	return r.markSafe(escape(str.toString()));
 }
 
-export function groupby(arr: any[], attr: string) {
+export function groupby(this: any, arr: any[], attr: string) {
 	return groupBy(arr, attr, this.env.opts.throwOnUndefined);
 }
 
@@ -161,7 +164,7 @@ export const random = (arr: any[]) =>
 function getSelectOrReject(
 	expectedTestResult: boolean = false
 ): (a: any[], s: string, b: any) => any[] {
-	return function filter(arr, testName = 'truthy', secondArg) {
+	return function filter(this: any, arr, testName = 'truthy', secondArg) {
 		const context = this;
 		const test = context.env.getTest(testName);
 
@@ -311,6 +314,7 @@ export const sort = r.makeMacro(
 	['value', 'reverse', 'case_sensitive', 'attribute'],
 	[],
 	function sortFilter(
+		this: any,
 		arr: any[],
 		reversed: boolean = false,
 		caseSens: boolean = false,

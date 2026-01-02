@@ -1,10 +1,8 @@
-const waterfall = require('a-sync-waterfall');
 import {
 	_entries,
 	without,
 	isFunction,
 	asyncIter,
-	extend,
 	_prettifyError,
 	indexOf,
 	isString,
@@ -27,6 +25,29 @@ import expressApp from './express-app';
 
 const { handleError, Frame } = runtime;
 
+function waterfall(tasks, done, forceAsync: any) {
+	let i = 0;
+
+	function next(err, res) {
+		if (err) return done(err);
+		const task = tasks[i++];
+		if (!task) return done(null, res);
+
+		// first task: (cb), others: (res, cb)
+		if (task.length <= 1) task(next);
+		else task(res, next);
+	}
+
+	next(null, undefined);
+}
+
+// TODO: temporary fix
+declare global {
+	interface Window {
+		nunjucksPrecompiled?: any;
+	}
+}
+
 export const asap: Asap =
 	typeof queueMicrotask === 'function'
 		? queueMicrotask
@@ -37,7 +58,7 @@ export const asap: Asap =
 export function callbackAsap<E, R>(
 	cb: Callback<E, R>,
 	err: E | null,
-	res: R
+	res?: R
 ): void {
 	asap(() => cb(err, res));
 }
@@ -48,7 +69,7 @@ const noopTmplSrc = {
 		root(
 			env: Environment,
 			context: Context,
-			frame: Frame,
+			frame: typeof Frame,
 			runtime,
 			cb: Callback
 		) {
@@ -77,6 +98,16 @@ export class Environment extends EmitterObj {
 	autoescape: boolean = true;
 	loaders: Loader[] = [new FileSystemLoader(['views'])];
 	asyncFilters: string[] = [];
+	ctx?: Context;
+
+	// TODO: figure out types here
+
+	extensionsList: any[] = [];
+	extensions: Record<string, any> = {};
+	filters: Record<string, any> = {};
+	cache: Record<string, any> = {};
+	tests: Record<string, any> = {};
+	globals: any;
 	constructor(loaders: Loader[] = [], opts?: IEnvironmentOpts) {
 		super(loaders, opts);
 		this.init(loaders, opts);
@@ -102,12 +133,9 @@ export class Environment extends EmitterObj {
 		this.globals = globals();
 		this.filters = {};
 		this.tests = {};
-		this.asyncFilters = [];
-		this.extensions = {};
-		this.extensionsList = [];
-
+		// TODO: Running on init before initialized? Surely not used
 		_entries(filters).forEach(([name, filter]) => this.addFilter(name, filter));
-		_entries(tests).forEach(([name, test]) => this.addTest(name, test));
+		// _entries(tests).forEach(([name, test]) => this.addTest(name, test));
 	}
 
 	_initLoaders() {
@@ -132,14 +160,14 @@ export class Environment extends EmitterObj {
 		});
 	}
 
-	addExtension(name, extension) {
+	addExtension(name: string, extension: Record<string, any>) {
 		extension.__name = name;
 		this.extensions[name] = extension;
 		this.extensionsList.push(extension);
 		return this;
 	}
 
-	removeExtension(name) {
+	removeExtension(name: string) {
 		var extension = this.getExtension(name);
 		if (!extension) {
 			return;
@@ -149,7 +177,7 @@ export class Environment extends EmitterObj {
 		delete this.extensions[name];
 	}
 
-	getExtension(name) {
+	getExtension(name: string) {
 		return this.extensions[name];
 	}
 
@@ -169,7 +197,7 @@ export class Environment extends EmitterObj {
 		return this.globals[name];
 	}
 
-	addFilter(name: string, func, async) {
+	addFilter(name: string, func: Function, async?: any[]) {
 		var wrapped = func;
 
 		if (async) {
@@ -186,19 +214,19 @@ export class Environment extends EmitterObj {
 		return this.filters[name];
 	}
 
-	addTest(name: string, func): Environment {
-		this.tests[name] = func;
-		return this;
-	}
+	// addTest(name: string, func: Function): Environment {
+	// 	this.tests[name] = func;
+	// 	return this;
+	// }
 
-	getTest(name: string) {
-		if (!this.tests[name]) {
-			throw new Error('test not found: ' + name);
-		}
-		return this.tests[name];
-	}
+	// getTest(name: string) {
+	// 	if (!this.tests[name]) {
+	// 		throw new Error('test not found: ' + name);
+	// 	}
+	// 	return this.tests[name];
+	// }
 
-	resolveTemplate(loader: Loader, parentName, filename) {
+	resolveTemplate(loader: Loader, parentName: string, filename: string) {
 		let isRelative =
 			loader.isRelative && parentName ? loader.isRelative(filename) : false;
 		return isRelative && loader.resolve
@@ -206,7 +234,13 @@ export class Environment extends EmitterObj {
 			: filename;
 	}
 
-	getTemplate(name: string, eagerCompile, parentName, ignoreMissing, cb) {
+	getTemplate(
+		name: any,
+		eagerCompile: any,
+		parentName?: string | null,
+		ignoreMissing?: boolean,
+		cb?: Callback
+	) {
 		var that = this;
 		var tmpl = null;
 		if (name && name.raw) {
@@ -215,7 +249,7 @@ export class Environment extends EmitterObj {
 		}
 
 		if (isFunction(parentName)) {
-			cb = parentName;
+			cb = parentName as any;
 			parentName = null;
 			eagerCompile = eagerCompile || false;
 		}
@@ -340,30 +374,36 @@ export class Environment extends EmitterObj {
 		return syncResult;
 	}
 
-	renderString(src, ctx, opts, cb) {
+	renderString(src: any[], ctx: Context, opts: any, cb?: Callback) {
 		if (isFunction(opts)) {
 			cb = opts;
 			opts = {};
 		}
 		opts = opts || {};
 
-		const tmpl = new Template(src, this, opts.path);
+		const tmpl: any = new Template(src, this, opts.path);
 		return tmpl.render(ctx, cb);
 	}
 
-	waterfall(tasks, callback, forceAsync) {
+	waterfall(tasks: any, callback: Callback, forceAsync: any) {
 		return waterfall(tasks, callback, forceAsync);
 	}
 }
 
 export class Context extends Obj {
-	init(ctx, blocks, env = new Environment()) {
+	env: Environment = new Environment();
+	ctx: Record<string, any> = {};
+	exported: any[] = [];
+	blocks: Record<string, any> = {};
+	compiled: boolean = false;
+	init(
+		ctx: Record<string, any> = {},
+		blocks: Record<string, any> = {},
+		env = new Environment()
+	) {
 		this.env = env;
 
-		this.ctx = extend({}, ctx);
-
-		this.blocks = {};
-		this.exported = [];
+		this.ctx = { ...ctx };
 
 		Object.keys(blocks).forEach((name) => {
 			this.addBlock(name, blocks[name]);
@@ -380,7 +420,7 @@ export class Context extends Obj {
 		}
 	}
 
-	setVariable(name: string, val) {
+	setVariable(name: string, val: any) {
 		this.ctx[name] = val;
 	}
 
@@ -402,7 +442,15 @@ export class Context extends Obj {
 		return this.blocks[name][0];
 	}
 
-	getSuper(env, name: string, block, frame, runtime, cb) {
+	// TODO: fix any here
+	getSuper(
+		env: Environment,
+		name: string,
+		block: any,
+		frame: any,
+		runtime: any,
+		cb: Callback
+	) {
 		var idx = indexOf(this.blocks[name] || [], block);
 		var blk = this.blocks[name][idx + 1];
 		var context = this;
@@ -429,15 +477,24 @@ export class Context extends Obj {
 
 type ITemplateSrc = { type: 'code' | 'string'; obj: any };
 export class Template extends Obj {
+	env: Environment = new Environment();
+	tmplProps: Record<string, any> = {};
+	tmplStr: string | Record<string, any> = {};
+	path: string = '';
+	blocks: any;
+	compiled: boolean = false;
+	rootRenderFunc: any;
 	init(
 		src: ITemplateSrc | string,
 		env = new Environment(),
-		path,
-		eagerCompile
+		path: string,
+		eagerCompile: any
 	) {
 		this.env = env;
 
-		if (typeof src === ITemplateSrc) {
+		if (isString(src)) {
+			this.tmplStr = src;
+		} else {
 			switch (src.type) {
 				case 'code':
 					this.tmplProps = src.obj;
@@ -450,28 +507,27 @@ export class Template extends Obj {
 						`Unexpected template object type ${src.type}; expected 'code', or 'string'`
 					);
 			}
-		} else if (isString(src)) {
-			this.tmplStr = src;
-		} else {
-			throw new Error(
-				'src must be a string or an object describing the source'
-			);
 		}
+		// else {
+		// 	throw new Error(
+		// 		'src must be a string or an object describing the source'
+		// 	);
+		// }
 
 		this.path = path;
 
 		if (eagerCompile) {
 			try {
 				this._compile();
-			} catch (err) {
-				throw _prettifyError(this.path, this.env.opts.dev, err);
+			} catch (err: any) {
+				throw _prettifyError(this.path, this.env.dev, err);
 			}
 		} else {
 			this.compiled = false;
 		}
 	}
 
-	render(ctx, parentFrame, cb) {
+	render(ctx: any, parentFrame: any, cb: Callback) {
 		if (typeof ctx === 'function') {
 			cb = ctx;
 			ctx = {};
@@ -490,7 +546,7 @@ export class Template extends Obj {
 		try {
 			this.compile();
 		} catch (e) {
-			const err = _prettifyError(this.path, this.env.opts.dev, e);
+			const err = _prettifyError(this.path, this.env.dev, e);
 			if (cb) {
 				return callbackAsap(cb, err);
 			} else {
@@ -504,6 +560,7 @@ export class Template extends Obj {
 		let syncResult = null;
 		let didError = false;
 
+		// @ts-ignore
 		this.rootRenderFunc(this.env, context, frame, runtime, (err, res) => {
 			// TODO: this is actually a bug in the compiled template (because waterfall
 			// tasks are both not passing errors up the chain of callbacks AND are not
@@ -515,7 +572,7 @@ export class Template extends Obj {
 			}
 
 			if (err) {
-				err = _prettifyError(this.path, this.env.opts.dev, err);
+				err = _prettifyError(this.path, this.env.dev, err);
 				didError = true;
 			}
 
@@ -536,7 +593,7 @@ export class Template extends Obj {
 		return syncResult;
 	}
 
-	getExported(ctx, parentFrame, cb) {
+	getExported(ctx: any, parentFrame: any, cb: Callback) {
 		// eslint-disable-line consistent-return
 		if (typeof ctx === 'function') {
 			cb = ctx;
@@ -564,6 +621,7 @@ export class Template extends Obj {
 
 		// Run the rootRenderFunc to populate the context with exported vars
 		const context = new Context(ctx || {}, this.blocks, this.env);
+
 		this.rootRenderFunc(this.env, context, frame, runtime, (err) => {
 			if (err) {
 				cb(err, null);
@@ -586,11 +644,11 @@ export class Template extends Obj {
 			props = this.tmplProps;
 		} else {
 			const source = compiler.compile(
-				this.tmplStr,
+				this.tmplStr as string,
 				this.env.asyncFilters,
 				this.env.extensionsList,
 				this.path,
-				this.env.opts
+				{}
 			);
 
 			const func = new Function(source); // eslint-disable-line no-new-func
@@ -605,7 +663,7 @@ export class Template extends Obj {
 	_getBlocks(props) {
 		var blocks = {};
 
-		keys(props).forEach((k) => {
+		Object.keys(props).forEach((k) => {
 			if (k.slice(0, 2) === 'b_') {
 				blocks[k.slice(2)] = props[k];
 			}

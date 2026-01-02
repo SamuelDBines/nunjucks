@@ -7,23 +7,16 @@ import {
 	FileSystemLoader,
 	NodeResolveLoader,
 } from './src/loader';
+
 import { Callback } from './src/types';
+import precompile from './src/precompile';
 
-export * as lib from './src/lib';
-export * as lexer from './src/lexer';
-export * as parser from './src/parser';
-export * as nodes from './src/nodes';
-export * as compiler from './src/compiler';
+import runtime from './src/runtime';
+import installJinjaCompat from './src/jinja-compat';
 
-const precompile = require('./src/precompile');
+let e: Environment = new Environment();
 
-const runtime = require('./src/runtime');
-const installJinjaCompat = require('./src/jinja-compat');
-
-// A single instance of an environment, since this is so commonly used
-let e: Environment;
-
-function configure(templatesPath: string, opts: any = {}) {
+function configure(templatesPath: string = '.', opts: any = {}) {
 	let tmp = opts;
 	if (isObject(templatesPath)) {
 		tmp = templatesPath;
@@ -65,7 +58,7 @@ export default {
 	reset() {
 		e = new Environment();
 	},
-	compile(src, env, path, eagerCompile) {
+	compile(src: any, env: any, path: any, eagerCompile: any) {
 		if (!e) {
 			configure();
 		}
@@ -77,7 +70,7 @@ export default {
 		}
 		return e.render(name, ctx, cb);
 	},
-	renderString(src, ctx, cb: Callback) {
+	renderString(src: any, ctx: Context, cb: Callback) {
 		if (!e) {
 			configure();
 		}
@@ -87,3 +80,9 @@ export default {
 	precompile: precompile ? precompile.precompile : undefined,
 	precompileString: precompile ? precompile.precompileString : undefined,
 };
+
+export * as lib from './src/lib';
+export * as lexer from './src/lexer';
+export * as parser from './src/parser';
+export * as nodes from './src/nodes';
+export * as compiler from './src/compiler';

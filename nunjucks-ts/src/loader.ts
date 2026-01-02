@@ -58,7 +58,7 @@ function extendClass(cls: any, name: string, props: any = {}) {
 		}
 	}
 
-	Object.assign(subclass.prototype ?? {}, props);
+	return Object.assign(subclass.prototype ?? {}, props);
 
 	return subclass;
 }
@@ -110,6 +110,7 @@ export class EmitterObj extends EventEmitter {
 export class Loader extends EmitterObj implements ILoader {
 	watch: boolean = false;
 	noCache: boolean = false;
+	cache: Record<string, any> = {};
 	resolve(from: string, to: string) {
 		return path.resolve(path.dirname(from), to);
 	}
@@ -152,7 +153,6 @@ export class WebLoader extends Loader implements IWebLoader {
 	baseURL: string;
 	useCache: boolean;
 	async: boolean;
-	cache: any;
 
 	constructor(
 		baseURL: string = '.',

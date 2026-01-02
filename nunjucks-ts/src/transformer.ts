@@ -42,7 +42,7 @@ function mapCOW<T>(arr: readonly T[], func: (item: T) => T): readonly T[] {
 	return res || arr;
 }
 
-function walk<T>(ast: T, func: Walker, depthFirst: boolean): T {
+function walk<T>(ast: T, func: Walker, depthFirst?: boolean): T {
 	if (!(ast instanceof Node)) return ast;
 
 	let node = ast as unknown as Node;
@@ -101,33 +101,36 @@ function _liftFilters(
 ): Node {
 	const children: Node[] = [];
 
-	const walked = depthWalk(prop ? (node as any)[prop] : node, (descNode) => {
-		let symbol: Symbol | undefined;
+	const walked = depthWalk(
+		prop ? (node as any)[prop] : node,
+		(descNode: any) => {
+			let symbol: Symbol | undefined;
 
-		if (descNode instanceof Block) {
-			return descNode;
+			if (descNode instanceof Block) {
+				return descNode;
+			}
+
+			const isAsyncFilter =
+				descNode instanceof Filter &&
+				indexOf(asyncFilters as any, descNode.name.value) !== -1;
+
+			if (isAsyncFilter || descNode instanceof CallExtensionAsync) {
+				symbol = new Symbol(descNode.lineno, descNode.colno, gensym());
+
+				children.push(
+					new FilterAsync(
+						descNode.lineno,
+						descNode.colno,
+						(descNode as any).name,
+						(descNode as any).args,
+						symbol
+					)
+				);
+			}
+
+			return symbol;
 		}
-
-		const isAsyncFilter =
-			descNode instanceof Filter &&
-			indexOf(asyncFilters as any, descNode.name.value) !== -1;
-
-		if (isAsyncFilter || descNode instanceof CallExtensionAsync) {
-			symbol = new Symbol(descNode.lineno, descNode.colno, gensym());
-
-			children.push(
-				new FilterAsync(
-					descNode.lineno,
-					descNode.colno,
-					(descNode as any).name,
-					(descNode as any).args,
-					symbol
-				)
-			);
-		}
-
-		return symbol;
-	}) as unknown as Node;
+	) as unknown as Node;
 
 	if (prop) {
 		(node as any)[prop] = walked;

@@ -6,6 +6,7 @@ import {
 	asyncFor,
 	inOperator,
 	isString,
+	EscapeChar,
 } from './lib';
 import { Callback } from './types';
 
@@ -22,7 +23,7 @@ export class Frame {
 	topLevel: boolean = false;
 	variables: Record<string, any>;
 	isolateWrites: any; // TODO: find out the type
-	constructor(parent: Frame | null, isolateWrites: any) {
+	constructor(parent?: Frame | null, isolateWrites?: any) {
 		this.variables = Object.create(null);
 		this.parent = parent;
 		this.topLevel = !!parent || false;
@@ -36,7 +37,7 @@ export class Frame {
 		// nested structure
 		let parts = name.split('.');
 		let obj = this.variables;
-		let frame = this;
+		let frame: any = this;
 
 		if (resolveUp) {
 			if ((frame = this.resolve(parts[0], true))) {
@@ -93,7 +94,7 @@ export class Frame {
 }
 
 function makeMacro(argNames: string[], kwargNames: string[], func: Function) {
-	return function macro(...macroArgs: any[]) {
+	return function macro(this: any, ...macroArgs: any[]) {
 		var argCount = numArgs(macroArgs);
 		var args;
 		var kwargs = getKeywordArgs(macroArgs);
@@ -167,19 +168,19 @@ function copySafeness(dest: any, target: string): string {
 	return target.toString();
 }
 
-function markSafe(val: string) {
+function markSafe(val: any) {
 	const type = typeof val;
 
 	if (type === 'string') {
-		return new SafeString(val);
+		return val.toString();
 	} else if (type !== 'function') {
 		return val;
 	} else {
-		return function wrapSafe(args) {
+		return function wrapSafe(this: any, args: any) {
 			var ret = val.apply(this, arguments);
 
 			if (typeof ret === 'string') {
-				return new SafeString(ret);
+				return ret.toString();
 			}
 
 			return ret;
@@ -187,9 +188,9 @@ function markSafe(val: string) {
 	}
 }
 
-export function suppressValue(val: string, autoescape: boolean) {
+export function suppressValue(val: EscapeChar, autoescape: boolean) {
 	if (autoescape) {
-		val = escape(val.toString());
+		return escape(val);
 	}
 	return val;
 }
@@ -235,13 +236,14 @@ function handleError(error: any, lineno: number = 0, colno: number = 0) {
 	return TemplateError(error, lineno, colno);
 }
 
-function asyncEach(arr: any[], dimen, iter: Function, cb: Callback) {
+function asyncEach(arr: any[], dimen: number, iter: Function, cb: Callback) {
 	if (Array.isArray(arr)) {
 		const len = arr.length;
+		// TODO: confirm types here
 
 		asyncIter(
 			arr,
-			function iterCallback(item, i, next) {
+			function iterCallback(this: any, item: any, i: any, next: any) {
 				switch (dimen) {
 					case 1:
 						iter(item, i, len, next);
@@ -262,7 +264,13 @@ function asyncEach(arr: any[], dimen, iter: Function, cb: Callback) {
 	} else {
 		asyncFor(
 			arr,
-			function iterCallback(key: string, val, i: number, len: number, next) {
+			function iterCallback(
+				key: string,
+				val: any,
+				i: number,
+				len: number,
+				next: any
+			) {
 				iter(key, val, i, len, next);
 			},
 			cb
@@ -270,12 +278,19 @@ function asyncEach(arr: any[], dimen, iter: Function, cb: Callback) {
 	}
 }
 
-function asyncAll(arr: any[], dimen, func: Function, cb: Callback) {
+export function asyncAll(
+	this: any,
+	arr: any[],
+	dimen: number,
+	func: Function,
+	cb: Callback
+) {
 	let finished = 0;
 	let len: number = 0;
 	let outputArr: any[] = [];
 
-	function done(i, output) {
+	function done(i: any, output: any[]) {
+		//Find types for here with theses
 		finished++;
 		outputArr[i] = output;
 

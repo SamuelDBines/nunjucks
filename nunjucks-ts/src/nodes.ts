@@ -16,7 +16,7 @@ export class Node extends Obj {
 	extName: string = '';
 	lineno: number = 0;
 	colno: number = 0;
-	name: string = '';
+	name: any = '';
 	fields: string[] = [];
 	autoescape: boolean = true;
 	value: any = null;
@@ -27,6 +27,10 @@ export class Node extends Obj {
 	body: any;
 	else_: any;
 	__typename: NodeTypeKey = 'Node';
+	contentArgs: any;
+	args: any;
+	target: any;
+	prop: any;
 
 	constructor(...args: any[]) {
 		super(...args);
@@ -36,7 +40,7 @@ export class Node extends Obj {
 		return this.__typename;
 	}
 
-	init(lineno: number, colno: number, ...args: any[]) {
+	init(this: any, lineno: number, colno: number, ...args: any[]) {
 		this.lineno = lineno;
 		this.colno = colno;
 
@@ -54,11 +58,11 @@ export class Node extends Obj {
 		});
 	}
 
-	findAll(type: string, results: any[] = []) {
+	findAll(this: any, type: string, results: any[] = []) {
 		if (this instanceof NodeList) {
 			this.children.forEach((child) => traverseAndCheck(child, type, results));
 		} else {
-			this.fields.forEach((field) =>
+			this.fields.forEach((field: any) =>
 				traverseAndCheck(this[field], type, results)
 			);
 		}
@@ -66,8 +70,8 @@ export class Node extends Obj {
 		return results;
 	}
 
-	iterFields(func: Function) {
-		this.fields.forEach((field) => {
+	iterFields(this: any, func: Function) {
+		this.fields.forEach((field: any) => {
 			func(this[field], field);
 		});
 	}
@@ -107,7 +111,7 @@ export class FromImport extends Node {
 		colno: number,
 		template: string,
 		names: NodeList,
-		withContext
+		withContext: any
 	) {
 		super.init(lineno, colno, template, names || new NodeList(), withContext);
 	}
@@ -184,7 +188,7 @@ export const CompareOperand = Node.extend('CompareOperand', {
 export const CallExtension = Node.extend('CallExtension', {
 	init(
 		ext: { __name: string; autoescape: any },
-		prop,
+		prop: any,
 		args: NodeList,
 		contentArgs = []
 	) {
@@ -212,7 +216,7 @@ function print(str: string, indent: number = 0, inline: boolean = false) {
 }
 
 // Print the AST in a nicely formatted tree format for debuggin
-function printNodes(node: Node, indent: number = 0) {
+function printNodes(node: any, indent: number = 0) {
 	print(node.typename + ': ', indent);
 
 	if (node instanceof NodeList) {
@@ -228,13 +232,13 @@ function printNodes(node: Node, indent: number = 0) {
 		}
 
 		if (node.contentArgs) {
-			node.contentArgs.forEach((n) => {
+			node.contentArgs.forEach((n: any) => {
 				printNodes(n, indent + 2);
 			});
 		}
 	} else {
 		let nodes: any[] = [];
-		let props = null;
+		let props: any = null;
 
 		node.iterFields((val: any, fieldName: string) => {
 			if (val instanceof Node) {

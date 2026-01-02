@@ -5,7 +5,7 @@ import { compile } from './compiler';
 import { Environment, Template } from './environment';
 import { precompileGlobal } from './globals';
 
-function match(filename: string, patterns: RegExp) {
+function match(filename: string, patterns: RegExp | any[]) {
 	if (!Array.isArray(patterns)) {
 		return false;
 	}
@@ -34,18 +34,19 @@ const precompileOpts: IPrecompileOpts = {
 };
 
 function precompileString(str: string, opts?: IPrecompileOpts) {
-	opts = {
+	const _out = {
 		...precompileOpts,
 		...opts,
 	};
 
-	if (!opts.name) {
+	if (!_precompile.name) {
 		throw new Error('the "name" option is required when compiling a string');
 	}
-	return opts.wrapper([_precompile(str, opts.name, opts.env)], opts);
+	// @ts-ignore
+	return _out?.wrapper([_precompile(str, opts.name, opts.env)], opts);
 }
 
-function precompile(input, opts?: IPrecompileOpts) {
+function precompile(input: any, opts?: IPrecompileOpts) {
 	// The following options are available:
 	//
 	// * name: name of the template (auto-generated when compiling a directory)
@@ -68,7 +69,7 @@ function precompile(input, opts?: IPrecompileOpts) {
 
 	const pathStats = fs.statSync(input);
 	const precompiled = [];
-	const templates: Template[] = [];
+	const templates: any[] = [];
 
 	function addTemplates(dir: string) {
 		fs.readdirSync(dir).forEach((file) => {
@@ -78,10 +79,10 @@ function precompile(input, opts?: IPrecompileOpts) {
 
 			if (stat && stat.isDirectory()) {
 				subpath += '/';
-				if (!match(subpath, opts.exclude)) {
+				if (!match(subpath, opts?.exclude)) {
 					addTemplates(filepath);
 				}
-			} else if (match(subpath, opts.include)) {
+			} else if (match(subpath, opts?.include)) {
 				templates.push(filepath);
 			}
 		});
@@ -113,7 +114,7 @@ function precompile(input, opts?: IPrecompileOpts) {
 		}
 	}
 
-	return wrapper(precompiled, opts);
+	return wrapper(precompiled, opts as any);
 }
 
 export function _precompile(

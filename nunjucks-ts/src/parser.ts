@@ -16,9 +16,11 @@ import {
 	TOKEN_NONE,
 	TOKEN_REGEX,
 	TOKEN_PIPE,
+	TOKEN_LEFT_CURLY,
 } from './lexer';
+// import { LexerTokens } from './lexer-const';
 import * as lexer from './lexer';
-import { Filter } from './nodes';
+import { Filter, Capture } from './nodes';
 import * as nodes from './nodes';
 import { Obj } from './loader';
 import { TemplateError, indexOf } from './lib';
@@ -122,7 +124,7 @@ class Parser extends Obj {
 		return this.skipValue(TOKEN_SYMBOL, val);
 	}
 
-	advanceAfterBlockEnd(name: string) {
+	advanceAfterBlockEnd(name?: string) {
 		var tok;
 		if (!name) {
 			tok = this.peekToken();
@@ -693,8 +695,7 @@ class Parser extends Obj {
 		return node;
 	}
 
-	parseRaw(tagName) {
-		tagName = tagName || 'raw';
+	parseRaw(tagName: string = 'raw') {
 		const endTagName = 'end' + tagName;
 		// Look for upcoming raw blocks (ignore all other kinds of blocks)
 		const rawBlockRegex = new RegExp(
@@ -1002,7 +1003,7 @@ class Parser extends Obj {
 		return node;
 	}
 
-	parseUnary(noFilters) {
+	parseUnary(noFilters: boolean = false) {
 		const tok = this.peekToken();
 		let node;
 
@@ -1204,7 +1205,7 @@ class Parser extends Obj {
 		return node;
 	}
 
-	parseSignature(tolerant, noParens) {
+	parseSignature(tolerant?: any, noParens?: boolean) {
 		let tok = this.peekToken();
 		if (!noParens && tok.type !== lexer.TOKEN_LEFT_PAREN) {
 			if (tolerant) {

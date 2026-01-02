@@ -46,9 +46,9 @@ const token = (type: string, value: any, lineno: number, colno: number) => ({
 });
 
 interface ITokenizerOpts {
-	trimBlocks: boolean;
-	lstripBlocks: boolean;
-	tags: Record<string, any>;
+	trimBlocks?: boolean;
+	lstripBlocks?: boolean;
+	tags?: Record<string, any>;
 }
 class Tokenizer {
 	str: string = '';
@@ -529,8 +529,9 @@ class Tokenizer {
 	}
 }
 
+export const lex = (str: string, opts: ITokenizerOpts) => {
+	return new Tokenizer(str, opts);
+};
 export default {
-	lex(str: string, opts: ITokenizerOpts) {
-		return new Tokenizer(str, opts);
-	},
+	lex,
 };

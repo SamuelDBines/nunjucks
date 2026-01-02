@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "target": "ES2023",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "incremental": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": false,
+    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "resolveJsonModule": true,
+    "outDir": "./dist",
+    "baseUrl": "./nunjucks-ts",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "nunjucks-ts",
+    "tests"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "client"
+  ]
+}

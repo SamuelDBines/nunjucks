@@ -40,3 +40,5 @@ export function express(env: Environment, app: any) {
 	app.set('nunjucksEnv', env);
 	return env;
 }
+
+export default express;

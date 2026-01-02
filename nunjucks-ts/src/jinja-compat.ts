@@ -1,11 +1,16 @@
-// Not event used?
-export function installCompat() {
+// Not event used? is u
+import * as lib from './lib';
+
+interface InstallCompatOpts {
+	lib: lib.ILib;
+}
+export function installCompat(opts: InstallCompatOpts) {
 	/* eslint-disable camelcase */
 
 	// This must be called like `nunjucks.installCompat` so that `this`
 	// references the nunjucks instance
 	let runtime = this.runtime;
-	var lib = this.lib;
+	let lib = this.lib;
 	// Handle slim case where these 'modules' are excluded from the built source
 	var Compiler = this.compiler.Compiler;
 	var Parser = this.parser.Parser;
@@ -233,7 +238,7 @@ export function installCompat() {
 			return this.splice(index, 0, elem);
 		},
 	};
-	const OBJECT_MEMBERS = {
+	const OBJECT_MEMBERS: any = {
 		items() {
 			return Object.entries(this);
 		},
@@ -289,7 +294,11 @@ export function installCompat() {
 	OBJECT_MEMBERS.itervalues = OBJECT_MEMBERS.values;
 	OBJECT_MEMBERS.iterkeys = OBJECT_MEMBERS.keys;
 
-	runtime.memberLookup = function memberLookup(obj, val, autoescape) {
+	runtime.memberLookup = function memberLookup(
+		obj,
+		val: string | number,
+		autoescape: boolean
+	) {
 		if (arguments.length === 4) {
 			return sliceLookup.apply(this, arguments);
 		}
@@ -297,7 +306,7 @@ export function installCompat() {
 
 		// If the object is an object, return any of the methods that Python would
 		// otherwise provide.
-		if (lib.isArray(obj) && hasOwnProp(ARRAY_MEMBERS, val)) {
+		if (Array.isArray(obj) && hasOwnProp(ARRAY_MEMBERS, val)) {
 			return ARRAY_MEMBERS[val].bind(obj);
 		}
 		if (lib.isObject(obj) && hasOwnProp(OBJECT_MEMBERS, val)) {

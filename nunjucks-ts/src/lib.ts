@@ -1,3 +1,6 @@
+import { Callback } from './types';
+
+// --- PRIVATE ---
 const ArrayProto = Array.prototype;
 const ObjProto = Object.prototype;
 
@@ -13,13 +16,8 @@ const escapeMap = {
 	'\\': '&#92;',
 };
 
-type EscapeMap = typeof escapeMap;
-type EscapeChar = keyof typeof escapeMap;
-type EscapeEntity = (typeof escapeMap)[EscapeChar];
-
-const lookupEscape = (ch: EscapeChar): EscapeEntity => escapeMap[ch];
-export const escape = (val: string) =>
-	val.replace(escapeRegex, lookupEscape(val as EscapeChar));
+// type EscapeMap = typeof escapeMap;
+// type EscapeEntity = (typeof escapeMap)[EscapeChar];
 
 const typeOfItems = {
 	undefined: 'undefined',
@@ -32,6 +30,23 @@ const typeOfItems = {
 	function: 'function',
 };
 
+export interface ILib {
+	ILib: ILib;
+	EscapeChar: keyof typeof escapeMap;
+	TypeOfChar: keyof typeof typeOfItems;
+	TemplateErr: TemplateErr;
+	escape: (val: EscapeChar) => string;
+	dump: (obj: Record<any, any>, spaces?: string | number) => string;
+	match: (filename: string, patterns: string[]) => boolean;
+	isFunction: (obj: unknown) => boolean;
+	isArray: (obj: unknown) => boolean;
+	isString: (obj: unknown) => boolean;
+	isObject: (obj: unknown) => boolean;
+}
+export const escape = (val: EscapeChar) =>
+	val.replace(escapeRegex, escapeMap[val]);
+
+export type EscapeChar = keyof typeof escapeMap;
 export type TypeOfChar = keyof typeof typeOfItems;
 
 // -- TODO: Doesn't seem to be useds
@@ -59,28 +74,14 @@ export const dump = (obj: Record<any, any>, spaces?: string | number) =>
 //   .catch((err) => done(err));
 // }
 
-// function waterfall(tasks, done) {
-//   let i = 0;
-
-//   function next(err, res) {
-//     if (err) return done(err);
-//     const task = tasks[i++];
-//     if (!task) return done(null, res);
-
-//     // first task: (cb), others: (res, cb)
-//     if (task.length <= 1) task(next);
-//     else task(res, next);
-//   }
-
-//   next(null, undefined);
-// }
-
-export const match = (filename: string, patterns: any) =>
+export const match = (filename: string, patterns: string | string[]) =>
 	Array.isArray(patterns) &&
 	patterns.some((pattern) => filename.match(pattern));
 
-export const hasOwnProp = (obj: Record<string, any>, k: any) =>
-	ObjProto.hasOwnProperty.call(obj, k);
+export const hasOwnProp = (
+	obj: Record<string | number, any>,
+	key: string | number
+) => key in obj;
 
 export function _prettifyError(
 	path: string,
@@ -167,7 +168,7 @@ export const isArray = (obj: unknown): obj is Array<any> => Array.isArray(obj);
 export const isString = (obj: unknown): obj is string =>
 	typeof obj === typeOfItems.string;
 
-export const isObject = (obj: unknown): obj is Object =>
+export const isObject = (obj: unknown): obj is object =>
 	ObjProto.toString.call(obj) === '[object Object]';
 
 export const _prepareAttributeParts = (
@@ -178,15 +179,16 @@ export function getAttrGetter(attribute: string): (obj: Object) => any {
 	const parts = _prepareAttributeParts(attribute);
 
 	return function (item: object) {
-		let _item = item;
+		let _item: any = item; //TODO fix any
 
 		for (let i = 0; i < parts.length; i++) {
 			const part = parts[i];
 
 			// If item is not an object, and we still got parts to handle, it means
 			// that something goes wrong. Just roll out to undefined in that case.
-			if (hasOwnProp(_item, part)) {
-				// _item = _item[part]; // TODO: FIX THIS
+
+			if (part in _item) {
+				_item = _item[part]; // TODO: FIX THIS
 			} else {
 				return undefined;
 			}
@@ -268,7 +270,7 @@ export function asyncIter(arr: any, iter: Function, cb: Function) {
 export function asyncFor(
 	obj: Record<string, any>,
 	iter: Function,
-	cb: () => any
+	cb: Callback
 ) {
 	const keys = Object.keys(obj || {});
 	const len = keys.length;
