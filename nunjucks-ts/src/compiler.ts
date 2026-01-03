@@ -23,6 +23,7 @@ import {
 	Mul,
 	Div,
 	FloorDiv,
+		Macro,
 	Mod,
 	Pow,
 	Neg,
@@ -32,6 +33,8 @@ import {
 	Pair,
 	TemplateData,
 	Block,
+	CallExtension,
+
 } from './nodes';
 import { TemplateError } from './lib';
 import { Frame } from './runtime';
@@ -75,7 +78,7 @@ class Compiler extends Obj {
 	buffer: any = null;
 	bufferStack: any[] = [];
 
-	init(templateName: string, opts?: ICompilerOpts) {
+	constructor(templateName: string, opts?: ICompilerOpts) {
 		this.templateName = templateName;
 		this.codebuf = opts?.codebuf || [];
 		this.lastId = opts?.lastId || 0;
@@ -153,7 +156,7 @@ class Compiler extends Obj {
 	}
 
 	_withScopedSyntax(func: Function) {
-		var _scopeClosers = this._scopeClosers;
+		let _scopeClosers = this._scopeClosers;
 		this._scopeClosers = '';
 
 		func.call(this);
@@ -163,7 +166,7 @@ class Compiler extends Obj {
 	}
 
 	_makeCallback(res?: any) {
-		var err = this._tmpid();
+		let err = this._tmpid();
 
 		return (
 			'function(' +
@@ -265,7 +268,7 @@ class Compiler extends Obj {
 		}
 	}
 
-	compileCallExtension(node: Node | any, frame: Frame, async: any) {
+	compileCallExtension(node: CallExtension: Frame, async: any) {
 		let args = node.args;
 		let contentArgs = node.contentArgs;
 		let autoescape = node.autoescape;
@@ -341,15 +344,15 @@ class Compiler extends Obj {
 		}
 	}
 
-	compileCallExtensionAsync(node: any, frame: any) {
+	compileCallExtensionAsync(node: CallExtension, frame: any) {
 		this.compileCallExtension(node, frame, true);
 	}
 
-	compileNodeList(node: Node, frame: Frame) {
+	compileNodeList(node: NodeList, frame: Frame) {
 		this._compileChildren(node, frame);
 	}
 
-	compileLiteral(node: Node) {
+	compileLiteral(node: Literal) {
 		if (typeof node.value === 'string') {
 			let val = node.value.replace(/\\/g, '\\\\');
 			val = val.replace(/"/g, '\\"');
@@ -366,8 +369,8 @@ class Compiler extends Obj {
 	}
 
 	compileSymbol(node: Node, frame: Frame) {
-		var name = node.value;
-		var v = frame.lookup(name);
+		let name = node.value;
+		let v = frame.lookup(name);
 
 		if (v) {
 			this._emit(v);
@@ -390,7 +393,7 @@ class Compiler extends Obj {
 		this._compileAggregate(node, frame, '{', '}');
 	}
 
-	compilePair(node: Node, frame: Frame) {
+	compilePair(node: Pair, frame: Frame) {
 		let key = node.key;
 		let val = node.value;
 
@@ -434,7 +437,7 @@ class Compiler extends Obj {
 	compileIs(node: any, frame: any) {
 		// first, we need to try to get the name of the test function, if it's a
 		// callable (i.e., has args) and not a symbol.
-		var right = node.right.name
+		let right = node.right.name
 			? node.right.name.value
 			: // otherwise go with the symbol value
 			  node.right.value;
@@ -579,7 +582,7 @@ class Compiler extends Obj {
 	}
 
 	compileFilter(node: any, frame: any) {
-		var name = node.name;
+		let name = node.name;
 		this.assertType(name, Symbol);
 		this._emit('env.getFilter("' + name.value + '").call(context, ');
 		this._compileAggregate(node.args, frame);
@@ -587,8 +590,8 @@ class Compiler extends Obj {
 	}
 
 	compileFilterAsync(node: any, frame: any) {
-		var name = node.name;
-		var symbol = node.symbol.value;
+		let name = node.name;
+		let symbol = node.symbol.value;
 
 		this.assertType(name, Symbol);
 
@@ -608,13 +611,13 @@ class Compiler extends Obj {
 	}
 
 	compileSet(node: any, frame: Frame) {
-		var ids: any[] = [];
+		let ids: any[] = [];
 
 		// Lookup the variable names for each identifier and create
 		// new ones if necessary
 		node.targets.forEach((target: any) => {
-			var name = target.value;
-			var id: any = frame.lookup(name);
+			let name = target.value;
+			let id: any = frame.lookup(name);
 
 			if (id === null || id === undefined) {
 				id = this._tmpid();
@@ -638,8 +641,8 @@ class Compiler extends Obj {
 		}
 
 		node.targets.forEach((target, i) => {
-			var id = ids[i];
-			var name = target.value;
+			let id = ids[i];
+			let name = target.value;
 
 			// We are running this for every var, but it's very
 			// uncommon to assign to multiple vars anyway
@@ -770,7 +773,7 @@ class Compiler extends Obj {
 
 			// Bind each declared var
 			node.name.children.forEach((child, u) => {
-				var tid = this._tmpid();
+				let tid = this._tmpid();
 				this._emitLine(`var ${tid} = ${arr}[${i}][${u}];`);
 				this._emitLine(`frame.set("${child}", ${arr}[${i}][${u}]);`);
 				frame.set(node.name.children[u].value, tid);
@@ -839,10 +842,10 @@ class Compiler extends Obj {
 		// worry about. This iterates across an object asynchronously,
 		// but not in parallel.
 
-		var i = this._tmpid();
-		var len = this._tmpid();
-		var arr: any = this._tmpid();
-		var asyncMethod = parallel ? 'asyncAll' : 'asyncEach';
+		let i = this._tmpid();
+		let len = this._tmpid();
+		let arr: any = this._tmpid();
+		let asyncMethod = parallel ? 'asyncAll' : 'asyncEach';
 		frame = frame.push();
 
 		this._emitLine('frame = frame.push();');
@@ -917,10 +920,10 @@ class Compiler extends Obj {
 	}
 
 	_compileMacro(node: Node, frame?: Frame) {
-		var args = [];
-		var kwargs = null;
-		var funcId = 'macro_' + this._tmpid();
-		var keepFrame = frame !== undefined;
+		let args = [];
+		let kwargs = null;
+		let funcId = 'macro_' + this._tmpid();
+		let keepFrame = frame !== undefined;
 
 		// Type check the definition of the args
 		node.args.children.forEach((arg, i: number) => {
@@ -996,11 +999,11 @@ class Compiler extends Obj {
 		return funcId;
 	}
 
-	compileMacro(node: any, frame: any) {
-		var funcId = this._compileMacro(node);
+	compileMacro(node: Macro, frame: any) {
+		let funcId = this._compileMacro(node);
 
 		// Expose the macro to the templates
-		var name = node.name.value;
+		let name = node.name.value;
 		frame.set(name, funcId);
 
 		if (frame.parent) {
@@ -1074,9 +1077,9 @@ class Compiler extends Obj {
 		this._addScopeLevel();
 
 		node.names.children.forEach((nameNode) => {
-			var name;
-			var alias;
-			var id = this._tmpid();
+			let name;
+			let alias;
+			let id = this._tmpid();
 
 			if (nameNode instanceof Pair) {
 				name = nameNode.key.value;
@@ -1105,7 +1108,7 @@ class Compiler extends Obj {
 	}
 
 	compileBlock(node: Node) {
-		var id = this._tmpid();
+		let id = this._tmpid();
 
 		// If we are executing outside a block (creating a top-level
 		// block), we really don't want to execute its code because it
@@ -1130,8 +1133,8 @@ class Compiler extends Obj {
 	}
 
 	compileSuper(node: any, frame: any) {
-		var name = node.blockName.value;
-		var id = node.symbol.value;
+		let name = node.blockName.value;
+		let id = node.symbol.value;
 
 		const cb = this._makeCallback(id);
 		this._emitLine(
@@ -1143,7 +1146,7 @@ class Compiler extends Obj {
 	}
 
 	compileExtends(node: any, frame: any) {
-		var k = this._tmpid();
+		let k = this._tmpid();
 
 		const parentTemplateId = this._compileGetTemplate(node, frame, true, false);
 
@@ -1193,7 +1196,7 @@ class Compiler extends Obj {
 	compileCapture(node: any, frame: any) {
 		// we need to temporarily override the current buffer id as 'output'
 		// so the set block writes to the capture output instead of the buffer
-		var buffer = this.buffer;
+		let buffer = this.buffer;
 		this.buffer = 'output';
 		this._emitLine('(function() {');
 		this._emitLine('var output = "";');
@@ -1206,9 +1209,9 @@ class Compiler extends Obj {
 		this.buffer = buffer;
 	}
 
-	compileOutput(node: any, frame: any) {
+	compileOutput(node: Node, frame: any) {
 		const children = node.children;
-		children.forEach((child) => {
+		children?.forEach((child) => {
 			// TemplateData is a special case because it is never
 			// autoescaped, so simply output it for optimization
 			if (child instanceof TemplateData) {
@@ -1285,7 +1288,7 @@ class Compiler extends Obj {
 	}
 
 	compile(node: any, frame?: any) {
-		var _compile = this['compile' + node.typename];
+		let _compile = this['compile' + node.typename];
 		if (_compile) {
 			_compile.call(this, node, frame);
 		} else {

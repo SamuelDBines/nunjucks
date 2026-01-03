@@ -11,13 +11,8 @@ type AnyFn = (...args: any[]) => any;
 // type WithTypename<T> = T & { readonly typename: string };
 type ParentThis = { parent?: AnyFn };
 
-type AbstractCtor<A extends any[] = any[], I = any> = abstract new (
-	...args: A
-) => I;
-
 interface IObj {
 	typename: string;
-	init: () => void;
 }
 
 interface ILoader {
@@ -55,36 +50,11 @@ type Ctor<Args extends any[] = any[], Instance = any> = new (
 	...args: Args
 ) => Instance;
 
+// Might need this
 type ExtendProps = {
 	fields: string[];
 	init?: (...args: any[]) => void;
 };
-
-type ExtendedCtor<TBase extends AbstractCtor, Name extends string> = new (
-	...args: ConstructorParameters<TBase>
-) => InstanceType<TBase> & { readonly typename: Name };
-
-function extendClass<TBase extends AbstractCtor, Name extends string>(
-	cls: TBase,
-	name: Name,
-	props?: ExtendProps
-): any {
-	if (props) {
-		Object.keys(props).forEach((k: string) => {
-			props[k] = parentWrap(cls.prototype[k], props[k]);
-		});
-	}
-
-	class subclass extends (cls as any) {
-		get typename() {
-			return name;
-		}
-	}
-
-	Object.assign(subclass.prototype ?? {}, props);
-
-	return subclass;
-}
 
 // --- CLASSES ---
 
@@ -97,7 +67,6 @@ export class Obj implements IObj {
 	}
 
 	init(...args: any[]) {}
-
 	get typename(): string {
 		return this.constructor.name;
 	}
@@ -131,14 +100,6 @@ export class Loader extends EventEmitter implements ILoader {
 
 	get typename() {
 		return this.constructor.name;
-	}
-
-	static extend(name: any | string, props: any = {}) {
-		if (typeof name === 'object') {
-			props = name;
-			name = 'anonymous';
-		}
-		return extendClass(this, name, props);
 	}
 }
 

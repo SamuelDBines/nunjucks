@@ -360,7 +360,6 @@ export default {
 	contextOrFrameLookup,
 	callWrap,
 	handleError,
-	isArray: Array.isArray,
 	keys: Object.keys,
 	copySafeness,
 	markSafe,

@@ -10,20 +10,22 @@ function traverseAndCheck(obj: Node, type: NodeTypeValue, results: any[]) {
 	}
 }
 export abstract class Node {
+	children: Node[] = [];
+	body: Node;
 	constructor(
 		public lineno = 0,
 		public colno = 0, // public extname = '', // public __typename: string = this.constructor.name, // public fields: string[] = []
 		public value?: any
 	) {}
 
-	abstract get typename(): string;
+	abstract get typename(): NodeTypeKey;
 
 	get fields(): readonly string[] {
 		return (this.constructor as typeof Node).fields;
 	}
 
 	static readonly fields: readonly string[] = [];
-	findAll(this: any, type: NodeTypeValue, results: any[] = []) {
+	findAll(this: Node, type: NodeTypeValue, results: any[] = []) {
 		if (this instanceof NodeList) {
 			this.children.forEach((child) => traverseAndCheck(child, type, results));
 		} else {
@@ -33,6 +35,34 @@ export abstract class Node {
 		}
 
 		return results;
+	}
+	iterFields(this: any, func: Function) {
+		this.fields.forEach((field: any) => {
+			func(this[field], field);
+		});
+	}
+}
+
+export class Slice extends Node {
+	start: Literal;
+	stop: Literal;
+	step: Literal;
+	constructor(
+		lineno: number,
+		colno: number,
+		start: Literal,
+		stop: Literal,
+		step: Literal
+	) {
+		super(lineno, colno);
+		this.start = start || new NodeList();
+		this.stop = stop;
+		this.step = step;
+	}
+
+	static readonly fields = ['start', 'stop', 'step'] as const;
+	get typename() {
+		return 'Slice' as NodeTypeKey;
 	}
 }
 
@@ -55,20 +85,20 @@ export class FromImport extends Node {
 
 	static readonly fields = ['template', 'names', 'withContext'] as const;
 	get typename() {
-		return 'FromImport';
+		return 'FromImport' as NodeTypeKey;
 	}
 }
 
 export class Pair extends Node {
 	key: any;
-	constructor(lineno: number, colno: number, key: any, value: any) {
+	constructor(lineno: number, colno: number, key: any, value: any = null) {
 		super(lineno, colno);
 		this.key = key;
 		this.value = value;
 	}
 	static readonly fields = ['key', 'value'] as const;
 	get typename() {
-		return 'Pair';
+		return 'Pair' as NodeTypeKey;
 	}
 }
 
@@ -82,14 +112,20 @@ export class LookupVal extends Node {
 	}
 	static readonly fields = ['target', 'val'] as const;
 	get typename() {
-		return 'LookupVal';
+		return 'LookupVal' as NodeTypeKey;
 	}
 }
 export class If extends Node {
 	cond: any;
 	body: any;
 	else_: any;
-	constructor(lineno: number, colno: number, cond: any, body: any, else_: any) {
+	constructor(
+		lineno: number,
+		colno: number,
+		cond?: any,
+		body?: any,
+		else_?: any
+	) {
 		super(lineno, colno);
 		this.cond = cond;
 		this.body = body;
@@ -97,7 +133,7 @@ export class If extends Node {
 	}
 	static readonly fields = ['cond', 'body', 'else_'] as const;
 	get typename() {
-		return 'If';
+		return 'If' as NodeTypeKey;
 	}
 }
 
@@ -119,13 +155,13 @@ export class InlineIf extends Node {
 	}
 	static readonly fields = ['cond', 'body', 'else_'] as const;
 	get typename() {
-		return 'InlineIf';
+		return 'InlineIf' as NodeTypeKey;
 	}
 }
 
 export class For extends Node {
 	arr: any[] = [];
-	name: string = '';
+	name: Symbol | string = '';
 	body: any;
 	else_: any;
 	static readonly fields = ['arr', 'name', 'body', 'else_'] as const;
@@ -133,7 +169,7 @@ export class For extends Node {
 		lineno: number,
 		colno: number,
 		arr?: any[],
-		name?: string,
+		name?: Symbol | string,
 		body?: any,
 		else_?: any
 	) {
@@ -144,20 +180,19 @@ export class For extends Node {
 		this.else_ = else_;
 	}
 	get typename() {
-		return 'For';
+		return 'For' as NodeTypeKey;
 	}
 }
 
 export class Macro extends Node {
 	name: Symbol;
 	args: any;
-	body: NodeList;
 	constructor(
 		lineno: number,
 		colno: number,
 		name: Symbol,
 		args: any,
-		body: NodeList
+		body: NodeList | Symbol
 	) {
 		super(lineno, colno);
 		this.name = name;
@@ -166,13 +201,13 @@ export class Macro extends Node {
 	}
 	static readonly fields = ['name', 'args', 'body'] as const;
 	get typename() {
-		return 'Macro';
+		return 'Macro' as NodeTypeKey;
 	}
 }
 export class Import extends Node {
 	static readonly fields = ['template', 'target', 'withContext'] as const;
 	get typename() {
-		return 'Import';
+		return 'Import' as NodeTypeKey;
 	}
 	template: any;
 	target: any;
@@ -194,25 +229,20 @@ export class Import extends Node {
 export class Block extends Node {
 	name: Node | string = '';
 	body: any;
-	constructor(
-		lineno: number,
-		colno: number,
-		body?: any[],
-		name?: Node | string
-	) {
+	constructor(lineno: number, colno: number, body?: any, name?: Node | string) {
 		super(lineno, colno);
 		this.name = name || '';
 		this.body = body;
 	}
 	static readonly fields = ['name', 'body'] as const;
 	get typename() {
-		return 'Block';
+		return 'Block' as NodeTypeKey;
 	}
 }
 
 export class Super extends Node {
 	blockName: any;
-	symbol: any;
+	symbol: Symbol;
 	constructor(lineno: number, colno: number, blockName?: any, symbol?: any) {
 		super(lineno, colno);
 		this.blockName = blockName;
@@ -220,7 +250,7 @@ export class Super extends Node {
 	}
 	static readonly fields = ['blockName', 'symbol'] as const;
 	get typename() {
-		return 'Super';
+		return 'Super' as NodeTypeKey;
 	}
 }
 export class TemplateRef extends Node {
@@ -231,7 +261,7 @@ export class TemplateRef extends Node {
 	}
 	static readonly fields = ['template'] as const;
 	get typename() {
-		return 'TemplateRef';
+		return 'TemplateRef' as NodeTypeKey;
 	}
 }
 
@@ -245,7 +275,7 @@ export class FunCall extends Node {
 	}
 	static readonly fields = ['name', 'args'] as const;
 	get typename() {
-		return 'FunCall';
+		return 'FunCall' as NodeTypeKey;
 	}
 }
 
@@ -264,7 +294,7 @@ export class Include extends Node {
 	}
 	static readonly fields = ['template', 'ignoreMissing'] as const;
 	get typename() {
-		return 'Include';
+		return 'Include' as NodeTypeKey;
 	}
 }
 export class Set extends Node {
@@ -276,7 +306,7 @@ export class Set extends Node {
 	}
 	static readonly fields = ['targets', 'value'] as const;
 	get typename() {
-		return 'Set';
+		return 'Set' as NodeTypeKey;
 	}
 }
 
@@ -298,7 +328,7 @@ export class Switch extends Node {
 	}
 	static readonly fields = ['expr', 'cases', 'default'] as const;
 	get typename() {
-		return 'Switch';
+		return 'Switch' as NodeTypeKey;
 	}
 }
 
@@ -312,16 +342,18 @@ export class Case extends Node {
 	}
 	static readonly fields = ['cond', 'body'] as const;
 	get typename() {
-		return 'Case';
+		return 'Case' as NodeTypeKey;
 	}
 }
 
 export class Output extends Node {
+	// parent?:
 	get typename() {
-		return 'Output';
+		return 'Output' as NodeTypeKey;
 	}
-	constructor(lineno: number, colno: number, args: any) {
+	constructor(lineno: number, colno: number, args: Node[]) {
 		super(lineno, colno);
+		this.children = args;
 		// this.parent();
 		// this.extname = ext.__name || ext;
 		// this.prop = prop;
@@ -339,7 +371,7 @@ export class Capture extends Node {
 	}
 	static readonly fields = ['body'] as const;
 	get typename() {
-		return 'Capture';
+		return 'Capture' as NodeTypeKey;
 	}
 }
 
@@ -351,7 +383,7 @@ export class UnaryOp extends Node {
 	}
 	static readonly fields = ['target'] as const;
 	get typename() {
-		return 'UnaryOp';
+		return 'UnaryOp' as NodeTypeKey;
 	}
 }
 
@@ -364,7 +396,7 @@ export class BinOp extends Node {
 	}
 	static readonly fields = ['left', 'right'] as const;
 	get typename() {
-		return 'BinOp';
+		return 'BinOp' as NodeTypeKey;
 	}
 }
 
@@ -378,7 +410,7 @@ export class Compare extends Node {
 	}
 	static readonly fields = ['expr', 'ops'] as const;
 	get typename() {
-		return 'Compare';
+		return 'Compare' as NodeTypeKey;
 	}
 }
 
@@ -392,7 +424,7 @@ export class CompareOperand extends Node {
 	}
 	static readonly fields = ['expr', 'type'] as const;
 	get typename() {
-		return 'CompareOperand';
+		return 'CompareOperand' as NodeTypeKey;
 	}
 }
 
@@ -404,7 +436,7 @@ export class CallExtension extends Node {
 	autoescape: any;
 	static readonly fields = ['extname', 'prop', 'args', 'contentArgs'] as const;
 	get typename() {
-		return 'CallExtension';
+		return 'CallExtension' as NodeTypeKey;
 	}
 	constructor(
 		lineno: number,
@@ -493,7 +525,7 @@ export class CallExtension extends Node {
 export class Value extends Node {
 	static readonly fields = ['value'] as const;
 	get typename() {
-		return 'Value';
+		return 'Value' as NodeTypeKey;
 	}
 	constructor(lineno: number, colno: number, val: string | number) {
 		super(lineno, colno);
@@ -503,19 +535,19 @@ export class Value extends Node {
 
 export class Literal extends Value {
 	get typename() {
-		return 'Literal';
+		return 'Literal' as NodeTypeKey;
 	}
 }
 export class Symbol extends Value {
 	get typename() {
-		return 'Symbol';
+		return 'Symbol' as NodeTypeKey;
 	}
 }
 export class NodeList extends Node {
 	children: Node[] = [];
 	static readonly fields = ['children'] as const;
 	get typename() {
-		return 'NodeList';
+		return 'NodeList' as NodeTypeKey;
 	}
 	constructor(lineno: number = 0, colno: number = 0, children?: Node[]) {
 		super(lineno, colno);
@@ -529,60 +561,60 @@ export class NodeList extends Node {
 
 export class Root extends NodeList {
 	get typename() {
-		return 'Root';
+		return 'Root' as NodeTypeKey;
 	}
 }
 export class Group extends NodeList {
 	get typename() {
-		return 'Group';
+		return 'Group' as NodeTypeKey;
 	}
 }
 
 export class ArrayNode extends NodeList {
 	get typename() {
-		return 'Array';
+		return 'Array' as NodeTypeKey;
 	}
 }
 
 export class Dict extends NodeList {
 	get typename() {
-		return 'Dict';
+		return 'Dict' as NodeTypeKey;
 	}
 }
 
 export class IfAsync extends If {
 	get typename() {
-		return 'IfAsync';
+		return 'IfAsync' as NodeTypeKey;
 	}
 }
 export class AsyncEach extends For {
 	get typename() {
-		return 'AsyncEach';
+		return 'AsyncEach' as NodeTypeKey;
 	}
 }
 
 export class AsyncAll extends For {
 	get typename() {
-		return 'AsyncAll';
+		return 'AsyncAll' as NodeTypeKey;
 	}
 }
 
 export class Caller extends Macro {
 	get typename() {
-		return 'Caller';
+		return 'Caller' as NodeTypeKey;
 	}
 }
 
 export class Filter extends Macro {
 	get typename() {
-		return 'Filter';
+		return 'Filter' as NodeTypeKey;
 	}
 }
 
 export class FilterAsync extends Macro {
 	static readonly fields = ['name', 'args', 'symbol'] as const;
 	get typename() {
-		return 'FilterAsync';
+		return 'FilterAsync' as NodeTypeKey;
 	}
 }
 
@@ -591,108 +623,108 @@ export class KeywordArgs extends Dict {
 		super(lineno, colno);
 	}
 	get typename() {
-		return 'KeywordArgs';
+		return 'KeywordArgs' as NodeTypeKey;
 	}
 }
 
 export class Extends extends TemplateRef {
 	get typename() {
-		return 'Extends';
+		return 'Extends' as NodeTypeKey;
 	}
 }
 
 export class TemplateData extends Literal {
 	get typename() {
-		return 'TemplateData';
+		return 'TemplateData' as NodeTypeKey;
 	}
 }
 
 export class In extends BinOp {
 	get typename() {
-		return 'In';
+		return 'In' as NodeTypeKey;
 	}
 }
 
 export class Is extends BinOp {
 	get typename() {
-		return 'Is';
+		return 'Is' as NodeTypeKey;
 	}
 }
 export class Or extends BinOp {
 	get typename() {
-		return 'Or';
+		return 'Or' as NodeTypeKey;
 	}
 }
 
 export class And extends BinOp {
 	get typename() {
-		return 'And';
+		return 'And' as NodeTypeKey;
 	}
 }
 
 export class Add extends BinOp {
 	get typename() {
-		return 'Add';
+		return 'Add' as NodeTypeKey;
 	}
 }
 
 export class Concat extends BinOp {
 	get typename() {
-		return 'Concat';
+		return 'Concat' as NodeTypeKey;
 	}
 }
 
 export class Sub extends BinOp {
 	get typename() {
-		return 'Sub';
+		return 'Sub' as NodeTypeKey;
 	}
 }
 export class Mul extends BinOp {
 	get typename() {
-		return 'Mul';
+		return 'Mul' as NodeTypeKey;
 	}
 }
 
 export class Div extends BinOp {
 	get typename() {
-		return 'Div';
+		return 'Div' as NodeTypeKey;
 	}
 }
 export class FloorDiv extends BinOp {
 	get typename() {
-		return 'FloorDiv';
+		return 'FloorDiv' as NodeTypeKey;
 	}
 }
 export class Mod extends BinOp {
 	get typename() {
-		return 'Mod';
+		return 'Mod' as NodeTypeKey;
 	}
 }
 export class Pow extends BinOp {
 	get typename() {
-		return 'Pow';
+		return 'Pow' as NodeTypeKey;
 	}
 }
 export class Not extends UnaryOp {
 	get typename() {
-		return 'Not';
+		return 'Not' as NodeTypeKey;
 	}
 }
 
 export class Neg extends UnaryOp {
 	get typename() {
-		return 'Neg';
+		return 'Neg' as NodeTypeKey;
 	}
 }
 export class Pos extends UnaryOp {
 	get typename() {
-		return 'Pos';
+		return 'Pos' as NodeTypeKey;
 	}
 }
 
 export class CallExtensionAsync extends CallExtension {
 	get typename() {
-		return 'CallExtension';
+		return 'CallExtensionAsync' as NodeTypeKey;
 	}
 }
 
@@ -802,6 +834,7 @@ const NodeTypes = {
 	Pow,
 	Root,
 	Set,
+	Slice,
 	Sub,
 	Super,
 

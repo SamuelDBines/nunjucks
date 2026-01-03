@@ -74,11 +74,8 @@ export function _prettifyError(
 		err = TemplateError(err);
 	}
 	err.update(path);
-
-	// Unless they marked the dev flag, show them a trace from here
 	if (!withInternals) {
 		const old = err;
-		// err = new Error(old.message);
 		err.name = old.name;
 	}
 

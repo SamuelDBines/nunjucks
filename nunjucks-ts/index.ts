@@ -1,4 +1,4 @@
-import { isObject, TemplateErr } from './src/lib';
+import { isObject } from './src/lib';
 import { Environment, Template, Context } from './src/environment';
 import {
 	Loader,
@@ -8,7 +8,7 @@ import {
 } from './src/loader';
 
 import { Callback } from './src/types';
-import precompile from './src/precompile';
+import { precompile, precompileString } from './src/precompile';
 
 import runtime from './src/runtime';
 import installJinjaCompat from './src/jinja-compat';
@@ -75,8 +75,8 @@ export default {
 
 		return e.renderString(src, ctx, cb);
 	},
-	precompile: precompile ? precompile.precompile : undefined,
-	precompileString: precompile ? precompile.precompileString : undefined,
+	precompile: precompile,
+	precompileString: precompileString,
 };
 
 export * as lib from './src/lib';

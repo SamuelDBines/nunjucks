@@ -219,17 +219,17 @@ class Parser extends Obj {
 	}
 
 	advanceAfterVariableEnd() {
-		var tok = this.nextToken();
+		let tok = this.nextToken();
 
 		if (tok && tok.type === TOKEN_VARIABLE_END) {
 			this.dropLeadingWhitespace =
 				tok.value.charAt(
 					tok.value.length - this.tokens.tags.VARIABLE_END.length - 1
 				) === '-';
-		} else {
-			this.pushToken(tok);
-			this.fail('expected variable end');
+			return;
 		}
+		this.pushToken(tok);
+		this.fail('expected variable end');
 	}
 
 	parseFor() {
@@ -300,7 +300,7 @@ class Parser extends Obj {
 
 		const name = this.parsePrimary(true);
 		const args = this.parseSignature();
-		const node = new Macro(macroTok.lineno, macroTok.colno, name, args);
+		const node = new Macro(macroTok.lineno, macroTok.colno, name, args, null);
 
 		this.advanceAfterBlockEnd(macroTok.value);
 		node.body = this.parseUntilBlocks('endmacro');
@@ -1020,7 +1020,7 @@ class Parser extends Obj {
 		let node = this.parsePow();
 		while (this.skipValue(TOKEN_OPERATOR, '%')) {
 			const node2 = this.parsePow();
-			node = new nodes.Mod(node.lineno, node.colno, node, node2);
+			node = new Mod(node.lineno, node.colno, node, node2);
 		}
 		return node;
 	}
@@ -1130,7 +1130,7 @@ class Parser extends Obj {
 				name.lineno,
 				name.colno,
 				name,
-				new nodes.NodeList(
+				new NodeList(
 					name.lineno,
 					name.colno,
 					[node].concat(this.parseFilterArgs(node))

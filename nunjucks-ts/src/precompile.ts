@@ -33,7 +33,7 @@ const precompileOpts: IPrecompileOpts = {
 	include: [],
 };
 
-function precompileString(str: string, opts?: IPrecompileOpts) {
+export function precompileString(str: string, opts?: IPrecompileOpts) {
 	const _out = {
 		...precompileOpts,
 		...opts,
@@ -46,7 +46,7 @@ function precompileString(str: string, opts?: IPrecompileOpts) {
 	return _out?.wrapper([_precompile(str, opts.name, opts.env)], opts);
 }
 
-function precompile(input: any, opts?: IPrecompileOpts) {
+export function precompile(input: any, opts?: IPrecompileOpts) {
 	// The following options are available:
 	//
 	// * name: name of the template (auto-generated when compiling a directory)
@@ -141,8 +141,3 @@ export function _precompile(
 		template: template,
 	};
 }
-
-export default {
-	precompile,
-	precompileString,
-};

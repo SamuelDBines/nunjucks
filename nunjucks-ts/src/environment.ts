@@ -68,7 +68,7 @@ const noopTmplSrc = {
 			env: Environment,
 			context: Context,
 			frame: typeof Frame,
-			runtime,
+			runtime: typeof runtime,
 			cb: Callback
 		) {
 			try {
@@ -407,24 +407,27 @@ export class Environment extends EventEmitter {
 	}
 }
 
-export class Context extends Obj {
-	env: Environment = new Environment();
-	ctx: Record<string, any> = {};
+export class Context {
+	extname?: string;
+	__typename?: string;
 	exported: any[] = [];
-	blocks: Record<string, any> = {};
 	compiled: boolean = false;
-	init(
-		ctx: Record<string, any> = {},
-		blocks: Record<string, any> = {},
-		env = new Environment()
+	constructor(
+		public ctx: Record<string, any> = {},
+		public blocks: Record<string, any> = {},
+		public env = new Environment(),
+		public lineno: number,
+		public colno: number
 	) {
-		this.env = env;
-
 		this.ctx = { ...ctx };
 
 		Object.keys(blocks).forEach((name) => {
 			this.addBlock(name, blocks[name]);
 		});
+	}
+
+	get typename(): string {
+		return 'Context';
 	}
 
 	lookup(name: string) {
@@ -493,7 +496,7 @@ export class Context extends Obj {
 }
 
 type ITemplateSrc = { type: 'code' | 'string'; obj: any };
-export class Template extends Obj {
+export class Template {
 	env: Environment = new Environment();
 	tmplProps: Record<string, any> = {};
 	tmplStr: string | Record<string, any> = {};
@@ -501,11 +504,13 @@ export class Template extends Obj {
 	blocks: any;
 	compiled: boolean = false;
 	rootRenderFunc: any;
-	init(
+	constructor(
 		src: ITemplateSrc | string,
 		env = new Environment(),
 		path: string,
-		eagerCompile: any
+		eagerCompile: any,
+		public lineno: number,
+		public colno: number
 	) {
 		this.env = env;
 

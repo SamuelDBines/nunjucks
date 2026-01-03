@@ -120,7 +120,7 @@ describe('nodes: extend() typename + inheritance', () => {
 		const cond = new Symbol(0, 0, 'c');
 		const body = new Output(0, 0, []);
 		const else_ = new Output(0, 0, []);
-		const n = new (NodeCreator('IfAsync'))(0, 0, cond, body, else_);
+		const n = new NodeCreator('IfAsync')(0, 0, cond, body, else_);
 		expect(n.typename).toBe('IfAsync');
 
 		// still has If fields assigned
@@ -175,6 +175,6 @@ describe('NodeCreator', () => {
 
 	it('throws for invalid key', () => {
 		// NodeCreator throws a string in your implementation
-		expect(() => NodeCreator('Nope')).toThrow(/No node type found/i);
+		expect(() => NodeCreator('Nope' as any)).toThrow(/No node type found/i);
 	});
 });

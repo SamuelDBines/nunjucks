@@ -422,6 +422,7 @@ export function urlencode(obj: string | object | any[]) {
 		return enc(obj);
 	}
 	let keyvals = Array.isArray(obj) ? obj : Object.keys(obj);
+	console.log(keyvals);
 	return keyvals.map(([k, v]) => `${enc(k)}=${enc(v)}`).join('&');
 }
 

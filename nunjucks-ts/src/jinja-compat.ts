@@ -1,6 +1,8 @@
 // Not event used? is u
 import * as lib from './lib';
-
+import { Node, Slice } from './nodes';
+import { Frame } from './runtime';
+import * as lexer from './lexer';
 interface InstallCompatOpts {
 	lib: lib.ILib;
 }
@@ -70,30 +72,13 @@ export function installCompat(opts: InstallCompatOpts) {
 
 	if (process.env.BUILD_TYPE !== 'SLIM' && nodes && Compiler && Parser) {
 		// i.e., not slim mode
-		type SliceInitNode = typeof nodes.Literal;
-		const Slice = nodes.Node.extend('Slice', {
-			fields: ['start', 'stop', 'step'],
-			init(
-				lineno: number,
-				colno: number,
-				start: SliceInitNode,
-				stop: SliceInitNode,
-				step: SliceInitNode
-			) {
-				start = start || new nodes.Literal(lineno, colno, null);
-				stop = stop || new nodes.Literal(lineno, colno, null);
-				step = step || new nodes.Literal(lineno, colno, 1);
-				this.parent(lineno, colno, start, stop, step);
-			},
-		});
-
 		Compiler.prototype.assertType = function assertType(node) {
 			if (node instanceof Slice) {
 				return;
 			}
 			orig_Compiler_assertType.apply(this, arguments);
 		};
-		Compiler.prototype.compileSlice = function compileSlice(node, frame) {
+		function compileSlice(node: Slice, frame: Frame) {
 			this._emit('(');
 			this._compileExpression(node.start, frame);
 			this._emit('),(');
@@ -101,7 +86,8 @@ export function installCompat(opts: InstallCompatOpts) {
 			this._emit('),(');
 			this._compileExpression(node.step, frame);
 			this._emit(')');
-		};
+		}
+		Compiler.prototype.compileSlice = compileSlice;
 
 		Parser.prototype.parseAggregate = function parseAggregate() {
 			var origState = getTokensState(this.tokens);

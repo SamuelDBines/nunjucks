@@ -59,7 +59,7 @@ function walk<T>(ast: T, func: Walker, depthFirst?: boolean): T {
 		);
 
 		if (children !== node.children) {
-			const __NODE = NodeCreator(node.__typename);
+			const __NODE = NodeCreator(node.typename);
 			node = new __NODE(node.lineno, node.colno, children);
 		}
 	} else if (node instanceof CallExtension) {
@@ -69,7 +69,7 @@ function walk<T>(ast: T, func: Walker, depthFirst?: boolean): T {
 		);
 
 		if (args !== node.args || contentArgs !== node.contentArgs) {
-			const __NODE = NodeCreator(node.__typename);
+			const __NODE = NodeCreator(node.typename);
 			node = __NODE(node.extname, node.prop, args, contentArgs);
 		}
 	} else {

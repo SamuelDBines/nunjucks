@@ -57,6 +57,7 @@ import {
 	Set,
 	Sub,
 	Switch,
+	Super,
 	Symbol,
 	TemplateData,
 	TemplateRef,
@@ -66,12 +67,12 @@ import {
 
 function asNodeList(n: any): NodeCtor<'NodeList'> {
 	expect(n).toBeInstanceOf(NodeList);
-	return n as NodeCtor<'NodeList'>;
+	return n;
 }
 
 function asOutput(n: any): typeof Not {
 	expect(n).toBeInstanceOf(Output);
-	return n as NodeCtor<'Output'>;
+	return n;
 }
 
 function findAll(root: Node, Ctor: any) {
@@ -118,7 +119,7 @@ describe('transformer.ts', () => {
 
 		const ast = new Root(0, 0, [block]);
 
-		const res = transform(ast, ['af']) as NodeCtor<'Node'>;
+		const res = transform(ast, ['af']);
 
 		expect(findAll(res, FilterAsync).length).toBe(0);
 		expect(findAll(res, Filter).length).toBe(1);
@@ -171,7 +172,7 @@ describe('transformer.ts', () => {
 		// Put async filter inside the IF BODY (not the cond), so convertStatements will mark it async
 		const filterName = new Symbol(0, 0, 'af');
 		const filterArgs = new NodeList(0, 0, [new Literal(0, 0, 'x')]);
-		const filt = new Filter(0, 0, filterName, filterArgs);
+		const filt = new Filter(0, 0, filterName, filterArgs, null);
 
 		const out = new Output(0, 0, [filt]);
 		const ifBody = new NodeList(0, 0, [out]);
@@ -189,7 +190,7 @@ describe('transformer.ts', () => {
 	it('converts For -> AsyncEach when the For subtree contains async work', () => {
 		const filterName = new Symbol(0, 0, 'af');
 		const filterArgs = new NodeList(0, 0, [new Literal(0, 0, 'x')]);
-		const filt = new Filter(0, 0, filterName, filterArgs);
+		const filt = new Filter(0, 0, filterName, filterArgs, null);
 
 		const out = new Output(0, 0, [filt]);
 		const forBody = new NodeList(0, 0, [out]);

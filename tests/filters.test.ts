@@ -45,7 +45,6 @@ vi.mock('../nunjucks-ts/src/lib', () => {
 });
 
 async function loadFilters() {
-	// important: import after mocks
 	return await import('../nunjucks-ts/src/filters');
 }
 

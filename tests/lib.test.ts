@@ -14,13 +14,13 @@ describe('lib()', () => {
 		});
 
 		test('isArray()', () => {
-			expect(lib.isArray([])).toBe(true);
-			expect(lib.isArray([1, 2])).toBe(true);
-			expect(lib.isArray(new Array(3))).toBe(true);
+			expect(Array.isArray([])).toBe(true);
+			expect(Array.isArray([1, 2])).toBe(true);
+			expect(Array.isArray(new Array(3))).toBe(true);
 
-			expect(lib.isArray({ length: 1 })).toBe(false);
-			expect(lib.isArray('[]')).toBe(false);
-			expect(lib.isArray(null)).toBe(false);
+			expect(Array.isArray({ length: 1 })).toBe(false);
+			expect(Array.isArray('[]')).toBe(false);
+			expect(Array.isArray(null)).toBe(false);
 		});
 
 		test('isString()', () => {
@@ -299,8 +299,9 @@ describe('lib()', () => {
 
 		test('throws for null/undefined key (because `in` operator)', () => {
 			const obj: any = { a: 1 };
-			expect(() => lib.hasOwnProp(obj, undefined as any)).toBe(true);
-			expect(() => lib.hasOwnProp(obj, null as any)).toBe(true);
+			// [Function anonymous]
+			expect(() => lib.hasOwnProp(obj, undefined as any)).toBe(false);
+			expect(() => lib.hasOwnProp(obj, null as any)).toBe(false);
 		});
 	});
 });

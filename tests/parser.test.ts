@@ -373,8 +373,8 @@ describe('parser.ts', () => {
 
 	it('advanceAfterVariableEnd throws if missing variable end', () => {
 		// Use Parser directly so we can call method
-		const toks = lexer.lex('{{ 1 ', {} as any);
-		const p = new (parserMod as any).Parser(toks);
+		const toks = lexer.lex('{{ 1 ', {});
+		const p = new parserMod.Parser(toks);
 		// consume VARIABLE_START
 		p.nextToken();
 		p.parseExpression();
