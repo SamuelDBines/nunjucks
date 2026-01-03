@@ -1,0 +1,53 @@
+import { Context } from './environment';
+import { inOperator, EscapeChar } from './lib';
+import { Callback } from './types';
+export declare class Frame {
+    parent: Frame | null;
+    topLevel: boolean;
+    variables: Record<string, any>;
+    isolateWrites: any;
+    constructor(parent?: Frame | null, isolateWrites?: any);
+    set(name: string, val: any, resolveUp: boolean): void;
+    get(name: string): any;
+    lookup(name: string): Frame | null;
+    resolve(name: string, forWrite: boolean): Frame | null | undefined;
+    push(isolateWrites: any): Frame;
+    pop(): Frame;
+}
+declare function makeMacro(argNames: string[], kwargNames: string[], func: Function): (this: any, ...macroArgs: any[]) => any;
+declare function makeKeywordArgs(obj: any): any;
+declare function numArgs(args: any[]): number;
+declare function copySafeness(dest: any, target: string): string;
+declare function markSafe(val: any): any;
+export declare function suppressValue(val: EscapeChar, autoescape: boolean): string;
+export declare function ensureDefined(val: any, lineno?: number, colno?: number): any;
+export declare function memberLookup(obj: Record<string, any>, val: string): any;
+declare function callWrap(obj: any, name: string, context: Context, args: any[]): any;
+declare function contextOrFrameLookup(context: any, frame: Frame, name: string): any;
+declare function handleError(error: any, lineno?: number, colno?: number): any;
+declare function asyncEach(arr: any[], dimen: number, iter: Function, cb: Callback): void;
+export declare function asyncAll(this: any, arr: any[], dimen: number, func: Function, cb: Callback): void;
+export declare function fromIterator(arr: any[]): any[];
+declare const _default: {
+    Frame: typeof Frame;
+    makeMacro: typeof makeMacro;
+    makeKeywordArgs: typeof makeKeywordArgs;
+    numArgs: typeof numArgs;
+    ensureDefined: typeof ensureDefined;
+    memberLookup: typeof memberLookup;
+    contextOrFrameLookup: typeof contextOrFrameLookup;
+    callWrap: typeof callWrap;
+    handleError: typeof handleError;
+    isArray: (arg: any) => arg is any[];
+    keys: {
+        (o: object): string[];
+        (o: {}): string[];
+    };
+    copySafeness: typeof copySafeness;
+    markSafe: typeof markSafe;
+    asyncEach: typeof asyncEach;
+    asyncAll: typeof asyncAll;
+    inOperator: typeof inOperator;
+    fromIterator: typeof fromIterator;
+};
+export default _default;

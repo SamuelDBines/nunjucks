@@ -18,8 +18,6 @@ import {
 	NodeCreator,
 } from './nodes';
 
-import { indexOf } from './lib';
-
 type Walker = (node: Node) => Node | void | null | undefined;
 
 let sym = 0;
@@ -72,7 +70,7 @@ function walk<T>(ast: T, func: Walker, depthFirst?: boolean): T {
 
 		if (args !== node.args || contentArgs !== node.contentArgs) {
 			const __NODE = NodeCreator(node.__typename);
-			node = __NODE(node.extName, node.prop, args, contentArgs);
+			node = __NODE(node.extname, node.prop, args, contentArgs);
 		}
 	} else {
 		const props = node.fields.map((field) => node[field]);
@@ -112,7 +110,7 @@ function _liftFilters(
 
 			const isAsyncFilter =
 				descNode instanceof Filter &&
-				indexOf(asyncFilters as any, descNode.name.value) !== -1;
+				asyncFilters.indexOf(descNode.name.value as string) !== -1;
 
 			if (isAsyncFilter || descNode instanceof CallExtensionAsync) {
 				symbol = new Symbol(descNode.lineno, descNode.colno, gensym());

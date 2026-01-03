@@ -1,7 +1,7 @@
 // Making this a function instead so it returns a new object
 // each time it's called. That way, if something like an environment
 // uses it, they will each have their own copy.
-function globals() {
+export function globals() {
 	return {
 		range(start: number, stop: number, step: number = 1) {
 			if (typeof stop === 'undefined') {

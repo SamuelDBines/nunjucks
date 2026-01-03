@@ -3,7 +3,6 @@ import {
 	isObject,
 	TemplateError,
 	isString,
-	_entries,
 	getAttrGetter,
 	toArray,
 	groupBy,
@@ -65,6 +64,7 @@ export function dictsort(
 	let array = [];
 	// deliberately include properties from the object's prototype
 	for (let k in val) {
+		// @ts-ignore
 		array.push([k, val[k]]);
 	}
 
@@ -421,7 +421,7 @@ export function urlencode(obj: string | object | any[]) {
 	if (isString(obj)) {
 		return enc(obj);
 	}
-	let keyvals = Array.isArray(obj) ? obj : _entries(obj);
+	let keyvals = Array.isArray(obj) ? obj : Object.keys(obj);
 	return keyvals.map(([k, v]) => `${enc(k)}=${enc(v)}`).join('&');
 }
 
@@ -508,7 +508,6 @@ export const trim = (str: string): string =>
 export const first = (arr: any[] = []) => arr[0];
 export const last = (arr: any[] = []) => arr[arr.length - 1];
 
-exports.replace = replace;
 export const lower = (str: string) => normalize(str).toLowerCase();
 export const nl2br = (str = '') =>
 	str ? r.copySafeness(str, str.replace(/\r\n|\n/g, '<br />\n')) : '';

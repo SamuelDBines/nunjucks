@@ -70,9 +70,16 @@ export function installCompat(opts: InstallCompatOpts) {
 
 	if (process.env.BUILD_TYPE !== 'SLIM' && nodes && Compiler && Parser) {
 		// i.e., not slim mode
+		type SliceInitNode = typeof nodes.Literal;
 		const Slice = nodes.Node.extend('Slice', {
 			fields: ['start', 'stop', 'step'],
-			init(lineno, colno, start, stop, step) {
+			init(
+				lineno: number,
+				colno: number,
+				start: SliceInitNode,
+				stop: SliceInitNode,
+				step: SliceInitNode
+			) {
 				start = start || new nodes.Literal(lineno, colno, null);
 				stop = stop || new nodes.Literal(lineno, colno, null);
 				step = step || new nodes.Literal(lineno, colno, 1);
@@ -190,10 +197,6 @@ export function installCompat(opts: InstallCompatOpts) {
 		return results;
 	}
 
-	function hasOwnProp(obj, key) {
-		return Object.prototype.hasOwnProperty.call(obj, key);
-	}
-
 	const ARRAY_MEMBERS = {
 		pop(index?: number) {
 			if (!index) {
@@ -255,8 +258,8 @@ export function installCompat(opts: InstallCompatOpts) {
 			}
 			return output;
 		},
-		has_key(key) {
-			return hasOwnProp(this, key);
+		has_key(key: string) {
+			return key in this;
 		},
 		pop(key, def) {
 			var output = this[key];
@@ -304,12 +307,10 @@ export function installCompat(opts: InstallCompatOpts) {
 		}
 		obj = obj || {};
 
-		// If the object is an object, return any of the methods that Python would
-		// otherwise provide.
-		if (Array.isArray(obj) && hasOwnProp(ARRAY_MEMBERS, val)) {
+		if (Array.isArray(obj) && val in ARRAY_MEMBERS) {
 			return ARRAY_MEMBERS[val].bind(obj);
 		}
-		if (lib.isObject(obj) && hasOwnProp(OBJECT_MEMBERS, val)) {
+		if (lib.isObject(obj) && val in OBJECT_MEMBERS) {
 			return OBJECT_MEMBERS[val].bind(obj);
 		}
 

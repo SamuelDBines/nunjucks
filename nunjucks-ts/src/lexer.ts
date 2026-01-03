@@ -1,5 +1,3 @@
-import { indexOf } from './lib';
-
 export const whitespaceChars = ' \n\t\r\u00A0';
 export const delimChars = '()[]{}%*-+~/#,:|.<>=!';
 export const intChars = '0123456789';
@@ -181,12 +179,12 @@ class Tokenizer {
 				let curComplex = cur + this.current();
 				let type;
 
-				if (indexOf(complexOps, Number(curComplex)) !== -1) {
+				if (complexOps.indexOf(curComplex) !== -1) {
 					this.forward();
 					cur = curComplex;
 
 					// See if this is a strict equality/inequality comparator
-					if (indexOf(complexOps, Number(curComplex + this.current())) !== -1) {
+					if (complexOps.indexOf(curComplex + this.current()) !== -1) {
 						cur = curComplex + this.current();
 						this.forward();
 					}
@@ -508,7 +506,6 @@ class Tokenizer {
 		}
 	}
 
-	// current returns current character
 	current() {
 		if (!this.isFinished()) {
 			return this.str.charAt(this.index);
@@ -531,7 +528,4 @@ class Tokenizer {
 
 export const lex = (str: string, opts: ITokenizerOpts) => {
 	return new Tokenizer(str, opts);
-};
-export default {
-	lex,
 };

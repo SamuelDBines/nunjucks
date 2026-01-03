@@ -5,7 +5,6 @@ import {
 	PrecompiledLoader,
 	WebLoader,
 	FileSystemLoader,
-	NodeResolveLoader,
 } from './src/loader';
 
 import { Callback } from './src/types';
@@ -49,7 +48,6 @@ export default {
 	Template: Template,
 	Loader: Loader,
 	FileSystemLoader: FileSystemLoader,
-	NodeResolveLoader: NodeResolveLoader,
 	PrecompiledLoader,
 	WebLoader,
 	runtime: runtime,
@@ -86,3 +84,5 @@ export * as lexer from './src/lexer';
 export * as parser from './src/parser';
 export * as nodes from './src/nodes';
 export * as compiler from './src/compiler';
+// Maybe should be private?
+export * as transformer from './src/transformer';

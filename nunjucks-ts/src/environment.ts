@@ -1,10 +1,9 @@
+import EventEmitter from 'events';
 import {
-	_entries,
 	without,
 	isFunction,
 	asyncIter,
 	_prettifyError,
-	indexOf,
 	isString,
 	isObject,
 } from './lib';
@@ -18,7 +17,7 @@ import {
 } from './loader';
 
 import globals from './globals';
-import { Obj, EmitterObj } from './loader';
+import { Obj } from './loader';
 import runtime from './runtime';
 import { Asap, Callback } from './types';
 import expressApp from './express-app';
@@ -27,7 +26,6 @@ const { handleError, Frame } = runtime;
 
 function waterfall(tasks, done, forceAsync: any) {
 	let i = 0;
-
 	function next(err, res) {
 		if (err) return done(err);
 		const task = tasks[i++];
@@ -90,7 +88,7 @@ interface IEnvironmentOpts {
 	dev: boolean;
 }
 
-export class Environment extends EmitterObj {
+export class Environment extends EventEmitter {
 	throwOnUndefined: boolean = false;
 	trimBlocks: boolean = false;
 	lstripBlocks: boolean = false;
@@ -109,7 +107,7 @@ export class Environment extends EmitterObj {
 	tests: Record<string, any> = {};
 	globals: any;
 	constructor(loaders: Loader[] = [], opts?: IEnvironmentOpts) {
-		super(loaders, opts);
+		super();
 		this.init(loaders, opts);
 	}
 
@@ -134,8 +132,9 @@ export class Environment extends EmitterObj {
 		this.filters = {};
 		this.tests = {};
 		// TODO: Running on init before initialized? Surely not used
-		_entries(filters).forEach(([name, filter]) => this.addFilter(name, filter));
-		// _entries(tests).forEach(([name, test]) => this.addTest(name, test));
+		Object.entries(filters).forEach(([name, filter]) =>
+			this.addFilter(name, filter)
+		);
 	}
 
 	_initLoaders() {
@@ -385,6 +384,24 @@ export class Environment extends EmitterObj {
 		return tmpl.render(ctx, cb);
 	}
 
+	get typename(): string {
+		return this.constructor.name;
+	}
+
+	static extend(
+		name: string,
+		props?: {
+			fields: string[];
+			init?: (...args: any[]) => void;
+		}
+	) {
+		if (typeof name === 'object') {
+			props = name;
+			name = 'anonymous';
+		}
+		return extendClass(this, name, props);
+	}
+
 	waterfall(tasks: any, callback: Callback, forceAsync: any) {
 		return waterfall(tasks, callback, forceAsync);
 	}
@@ -451,7 +468,7 @@ export class Context extends Obj {
 		runtime: any,
 		cb: Callback
 	) {
-		var idx = indexOf(this.blocks[name] || [], block);
+		var idx = (this.blocks[name] || []).indexOf(block);
 		var blk = this.blocks[name][idx + 1];
 		var context = this;
 
@@ -527,7 +544,7 @@ export class Template extends Obj {
 		}
 	}
 
-	render(ctx: any, parentFrame: any, cb: Callback) {
+	render(ctx: any, parentFrame?: any, cb?: Callback) {
 		if (typeof ctx === 'function') {
 			cb = ctx;
 			ctx = {};
@@ -672,8 +689,3 @@ export class Template extends Obj {
 		return blocks;
 	}
 }
-
-export default {
-	Environment: Environment,
-	Template: Template,
-};

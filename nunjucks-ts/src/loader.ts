@@ -11,6 +11,10 @@ type AnyFn = (...args: any[]) => any;
 // type WithTypename<T> = T & { readonly typename: string };
 type ParentThis = { parent?: AnyFn };
 
+type AbstractCtor<A extends any[] = any[], I = any> = abstract new (
+	...args: A
+) => I;
+
 interface IObj {
 	typename: string;
 	init: () => void;
@@ -47,18 +51,37 @@ function parentWrap<P>(parent: unknown, prop: P): any {
 	};
 }
 
-function extendClass(cls: any, name: string, props: any = {}) {
-	Object.keys(props).forEach((k: string) => {
-		props[k] = parentWrap(cls.prototype[k], props[k]);
-	});
+type Ctor<Args extends any[] = any[], Instance = any> = new (
+	...args: Args
+) => Instance;
 
-	class subclass extends cls {
+type ExtendProps = {
+	fields: string[];
+	init?: (...args: any[]) => void;
+};
+
+type ExtendedCtor<TBase extends AbstractCtor, Name extends string> = new (
+	...args: ConstructorParameters<TBase>
+) => InstanceType<TBase> & { readonly typename: Name };
+
+function extendClass<TBase extends AbstractCtor, Name extends string>(
+	cls: TBase,
+	name: Name,
+	props?: ExtendProps
+): any {
+	if (props) {
+		Object.keys(props).forEach((k: string) => {
+			props[k] = parentWrap(cls.prototype[k], props[k]);
+		});
+	}
+
+	class subclass extends (cls as any) {
 		get typename() {
 			return name;
 		}
 	}
 
-	return Object.assign(subclass.prototype ?? {}, props);
+	Object.assign(subclass.prototype ?? {}, props);
 
 	return subclass;
 }
@@ -79,7 +102,13 @@ export class Obj implements IObj {
 		return this.constructor.name;
 	}
 
-	static extend(name: any, props?: any) {
+	static extend(
+		name: string,
+		props?: {
+			fields: string[];
+			init?: (...args: any[]) => void;
+		}
+	) {
 		if (typeof name === 'object') {
 			props = name;
 			name = 'anonymous';
@@ -88,10 +117,16 @@ export class Obj implements IObj {
 	}
 }
 
-export class EmitterObj extends EventEmitter {
-	constructor(...args: any[]) {
-		super(...args);
-		// this.init(...args);
+export class Loader extends EventEmitter implements ILoader {
+	watch: boolean = false;
+	noCache: boolean = false;
+	cache: Record<string, any> = {};
+	resolve(from: string, to: string) {
+		return path.resolve(path.dirname(from), to);
+	}
+
+	isRelative(filename: string) {
+		return filename.indexOf('./') === 0 || filename.indexOf('../') === 0;
 	}
 
 	get typename() {
@@ -107,20 +142,7 @@ export class EmitterObj extends EventEmitter {
 	}
 }
 
-export class Loader extends EmitterObj implements ILoader {
-	watch: boolean = false;
-	noCache: boolean = false;
-	cache: Record<string, any> = {};
-	resolve(from: string, to: string) {
-		return path.resolve(path.dirname(from), to);
-	}
-
-	isRelative(filename: string) {
-		return filename.indexOf('./') === 0 || filename.indexOf('../') === 0;
-	}
-}
-
-new Environment([new Loader([])]);
+// new Environment([new Loader([])]);
 
 export class PrecompiledLoader extends Loader {
 	precompiled: Record<string, any>;
@@ -304,61 +326,61 @@ export class FileSystemLoader extends Loader {
 	}
 }
 
-export class NodeResolveLoader extends Loader {
-	pathsToNames: Record<string, any>;
-	watcher: any;
-	constructor(opts?: ILoaderOpts) {
-		super();
-		this.pathsToNames = {};
-		this.noCache = opts?.noCache || false;
+// export class NodeResolveLoader extends Loader {
+// 	pathsToNames: Record<string, any>;
+// 	watcher: any;
+// 	constructor(opts?: ILoaderOpts) {
+// 		super();
+// 		this.pathsToNames = {};
+// 		this.noCache = opts?.noCache || false;
 
-		if (opts?.watch) {
-			try {
-				chokidar = require('chokidar'); // eslint-disable-line global-require
-			} catch (e) {
-				throw new Error('watch requires chokidar to be installed');
-			}
-			this.watcher = chokidar.watch();
+// 		if (opts?.watch) {
+// 			try {
+// 				chokidar = require('chokidar'); // eslint-disable-line global-require
+// 			} catch (e) {
+// 				throw new Error('watch requires chokidar to be installed');
+// 			}
+// 			this.watcher = chokidar.watch();
 
-			this.watcher.on('change', (fullname: string) => {
-				this.emit('update', this.pathsToNames[fullname], fullname);
-			});
-			this.watcher.on('error', (error: Error) => {
-				console.log('Watcher error: ' + error);
-			});
+// 			this.watcher.on('change', (fullname: string) => {
+// 				this.emit('update', this.pathsToNames[fullname], fullname);
+// 			});
+// 			this.watcher.on('error', (error: Error) => {
+// 				console.log('Watcher error: ' + error);
+// 			});
 
-			this.on('load', (name, source) => {
-				this.watcher.add(source.path);
-			});
-		}
-	}
+// 			this.on('load', (name, source) => {
+// 				this.watcher.add(source.path);
+// 			});
+// 		}
+// 	}
 
-	getSource(name: string) {
-		// Don't allow file-system traversal
-		if (/^\.?\.?(\/|\\)/.test(name)) {
-			return null;
-		}
-		if (/^[A-Z]:/.test(name)) {
-			return null;
-		}
+// 	getSource(name: string) {
+// 		// Don't allow file-system traversal
+// 		if (/^\.?\.?(\/|\\)/.test(name)) {
+// 			return null;
+// 		}
+// 		if (/^[A-Z]:/.test(name)) {
+// 			return null;
+// 		}
 
-		let fullpath;
+// 		let fullpath;
 
-		try {
-			fullpath = require.resolve(name);
-		} catch (e) {
-			return null;
-		}
+// 		try {
+// 			fullpath = require.resolve(name);
+// 		} catch (e) {
+// 			return null;
+// 		}
 
-		this.pathsToNames[fullpath] = name;
+// 		this.pathsToNames[fullpath] = name;
 
-		const source = {
-			src: fs.readFileSync(fullpath, 'utf-8'),
-			path: fullpath,
-			noCache: this.noCache,
-		};
+// 		const source = {
+// 			src: fs.readFileSync(fullpath, 'utf-8'),
+// 			path: fullpath,
+// 			noCache: this.noCache,
+// 		};
 
-		this.emit('load', name, source);
-		return source;
-	}
-}
+// 		this.emit('load', name, source);
+// 		return source;
+// 	}
+// }

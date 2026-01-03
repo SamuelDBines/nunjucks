@@ -7,7 +7,7 @@ const ObjProto = Object.prototype;
 // ---- ESCAPE CHARACTERS ----
 const escapeRegex = /[&"'<>\\]/g;
 
-const escapeMap = {
+export const escapeMap = {
 	'&': '&amp;',
 	'"': '&quot;',
 	"'": '&#39;',
@@ -17,7 +17,7 @@ const escapeMap = {
 };
 
 // type EscapeMap = typeof escapeMap;
-// type EscapeEntity = (typeof escapeMap)[EscapeChar];
+export type EscapeEntity = (typeof escapeMap)[EscapeChar];
 
 const typeOfItems = {
 	undefined: 'undefined',
@@ -32,49 +32,31 @@ const typeOfItems = {
 
 export interface ILib {
 	ILib: ILib;
-	EscapeChar: keyof typeof escapeMap;
-	TypeOfChar: keyof typeof typeOfItems;
+	EscapeChar: EscapeChar;
+	EscapeEntity: EscapeEntity;
+	TypeOfChar: TypeOfChar;
 	TemplateErr: TemplateErr;
 	escape: (val: EscapeChar) => string;
 	dump: (obj: Record<any, any>, spaces?: string | number) => string;
 	match: (filename: string, patterns: string[]) => boolean;
 	isFunction: (obj: unknown) => boolean;
-	isArray: (obj: unknown) => boolean;
 	isString: (obj: unknown) => boolean;
 	isObject: (obj: unknown) => boolean;
 }
-export const escape = (val: EscapeChar) =>
-	val.replace(escapeRegex, escapeMap[val]);
+export const escape = (val: string) =>
+	val.replace(escapeRegex, (ch) => escapeMap[ch]);
 
 export type EscapeChar = keyof typeof escapeMap;
 export type TypeOfChar = keyof typeof typeOfItems;
 
-// -- TODO: Doesn't seem to be useds
 export const callable = (value: any) => typeof value === 'function';
 
 export const defined = (value: any) => value !== undefined;
 
-// -- END
-
 export const dump = (obj: Record<any, any>, spaces?: string | number) =>
 	JSON.stringify(obj, null, spaces);
 
-// function waterfall(tasks, done) {
-//   tasks.reduce(
-//     (p, task, i) =>
-//       p.then((res) =>
-//         new Promise((resolve, reject) => {
-//           if (i === 0) task((err, out) => (err ? reject(err) : resolve(out)));
-//           else task(res, (err, out) => (err ? reject(err) : resolve(out)));
-//         })
-//       ),
-//     Promise.resolve(undefined)
-//   )
-//   .then((res) => done(null, res))
-//   .catch((err) => done(err));
-// }
-
-export const match = (filename: string, patterns: string | string[]) =>
+export const match = (filename: string, patterns: string[]) =>
 	Array.isArray(patterns) &&
 	patterns.some((pattern) => filename.match(pattern));
 
@@ -162,8 +144,6 @@ if (Object.setPrototypeOf) {
 
 export const isFunction = (obj: unknown): obj is Function =>
 	typeof obj === typeOfItems.function;
-
-export const isArray = (obj: unknown): obj is Array<any> => Array.isArray(obj);
 
 export const isString = (obj: unknown): obj is string =>
 	typeof obj === typeOfItems.string;
@@ -289,11 +269,6 @@ export function asyncFor(
 
 	next();
 }
-
-export const indexOf = ArrayProto.indexOf;
-export const keys_ = Object.keys;
-export const _entries = Object.entries;
-export const _values = Object.values;
 
 export function inOperator(key: string, val: any) {
 	if (Array.isArray(val) || isString(val)) {
