@@ -1,8 +1,5 @@
+//Done: Sun 4th Jan 2026 
 import { Callback } from './types';
-
-// --- PRIVATE ---
-const ArrayProto = Array.prototype;
-const ObjProto = Object.prototype;
 
 // ---- ESCAPE CHARACTERS ----
 const escapeRegex = /[&"'<>\\]/g;
@@ -128,7 +125,7 @@ export const isString = (obj: unknown): obj is string =>
 	typeof obj === typeOfItems.string;
 
 export const isObject = (obj: unknown): obj is object =>
-	ObjProto.toString.call(obj) === '[object Object]';
+	Object.prototype.toString.call(obj) === '[object Object]';
 
 export const _prepareAttributeParts = (
 	attr: string | number
@@ -179,7 +176,7 @@ export function groupBy(
 }
 
 export function toArray(obj: any) {
-	return ArrayProto.slice.call(obj);
+	return Array.prototype.slice.call(obj);
 }
 
 export function without<T>(array: T[] = [], ...contains: T[]) {
@@ -201,7 +198,7 @@ export const repeat = (char_: string, n: number) => {
 export function each(obj: any, func: Function, context: any) {
 	if (!obj) return;
 
-	if (ArrayProto.forEach && obj.forEach === ArrayProto.forEach) {
+	if (Array.prototype.forEach && obj.forEach === Array.prototype.forEach) {
 		obj.forEach(func, context);
 	} else if (obj?.length === +obj?.length) {
 		for (let i = 0, l = obj?.length; i < l; i++) {
@@ -249,16 +246,9 @@ export function asyncFor(
 	next();
 }
 
-export function inOperator(key: string, val: any) {
-	if (Array.isArray(val) || isString(val)) {
-		return val.indexOf(key) !== -1;
-	} else if (isObject(val)) {
-		return key in val;
-	}
-	throw new Error(
-		'Cannot use "in" operator to search for "' + key + '" in unexpected types.'
-	);
-}
+
+
+// Export this to its own awesome logger function
 
 const RESET: string = '\x1b[0m';
 const WARN: string = '\x1b[33m';
@@ -273,7 +263,7 @@ const ENDC = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const UNDERLINE = '\x1b[4m';
 
-const isObjectOrArray = (msg: unknown) => {
+const isObjectOrArray = (msg: unknown, space = '') => {
 	const parts = Array.isArray(msg) ? msg : [msg];
 
 	return parts
@@ -297,26 +287,45 @@ const isObjectOrArray = (msg: unknown) => {
 
 			return String(i); // undefined, null, symbol, function, etc
 		})
-		.join('');
+		.join(space);
 };
 
 type Log = (...msg: any[]) => void;
 
+
 export const p: {
 	log: Log;
+	llog: Log;
 	warn: Log;
+	lwarn: Log;
 	debug: Log;
+	ldebug: Log;
 	err: Log;
+	lerr: Log;
+	error: Log;
+	lerror: Log;
 	exit: Log;
 } = {
 	log: (...msg: any[]) =>
 		process.stdout.write(`[INFO] ${isObjectOrArray(msg)}\n`),
+	llog: (...msg: any[]) =>
+		process.stdout.write(`[INFO] ${isObjectOrArray(msg, '\n')}\n`),
 	debug: (...msg: any[]) =>
 		process.stdout.write(`${OKBLUE}[DEBUG] ${isObjectOrArray(msg)}${RESET}\n`),
+	ldebug: (...msg: any[]) =>
+		process.stdout.write(`${OKBLUE}[DEBUG] ${isObjectOrArray(msg, '\n')}${RESET}\n`),
 	warn: (...msg: any[]) =>
 		process.stdout.write(`${WARN}[WARN] ${isObjectOrArray(msg)}${RESET}\n`),
+	lwarn: (...msg: any[]) =>
+		process.stdout.write(`${WARN}[WARN] ${isObjectOrArray(msg, '\n')}${RESET}\n`),
 	err: (...msg: any[]) =>
 		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`),
+	error: (...msg: any[]) =>
+		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`),
+	lerr: (...msg: any[]) =>
+		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg, '\n')}${RESET}\n`),
+	lerror: (...msg: any[]) =>
+		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg, '\n')}${RESET}\n`),
 	exit: (...msg: any[]) => {
 		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`);
 		process.exit(1);

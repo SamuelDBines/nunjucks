@@ -316,7 +316,6 @@ export function asyncAll(
 	let outputArr: any[] = [];
 
 	function done(i: any, output: any[]) {
-		//Find types for here with theses
 		finished++;
 		outputArr[i] = output;
 

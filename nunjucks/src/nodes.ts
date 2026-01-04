@@ -1,3 +1,4 @@
+//Done: Sun 4th Jan 2026 (maybe everything should be async by default)
 import { dump, p } from './lib';
 
 function traverseAndCheck(obj: Node, type: NodeTypeValue, results: any[]) {

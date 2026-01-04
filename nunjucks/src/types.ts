@@ -1,4 +1,4 @@
-// DONE: Sat Jan 3
+// DONE: Sat Jan 3 2026
 // --- COMMON ---
 export type Callback<E = unknown, R = unknown> = (
 	err?: E | null,
