@@ -1,9 +1,22 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.p = exports.repeat = exports._prepareAttributeParts = exports.isObject = exports.isString = exports.isFunction = exports.hasOwnProp = exports.dump = exports.escape = exports.escapeMap = void 0;
+exports._prettifyError = _prettifyError;
+exports.TemplateError = TemplateError;
+exports.getAttrGetter = getAttrGetter;
+exports.groupBy = groupBy;
+exports.toArray = toArray;
+exports.without = without;
+exports.each = each;
+exports.asyncIter = asyncIter;
+exports.asyncFor = asyncFor;
+exports.inOperator = inOperator;
 // --- PRIVATE ---
 const ArrayProto = Array.prototype;
 const ObjProto = Object.prototype;
 // ---- ESCAPE CHARACTERS ----
 const escapeRegex = /[&"'<>\\]/g;
-const escapeMap = {
+exports.escapeMap = {
     '&': '&amp;',
     '"': '&quot;',
     "'": '&#39;',
@@ -11,8 +24,6 @@ const escapeMap = {
     '>': '&gt;',
     '\\': '&#92;',
 };
-// type EscapeMap = typeof escapeMap;
-// type EscapeEntity = (typeof escapeMap)[EscapeChar];
 const typeOfItems = {
     undefined: 'undefined',
     object: 'object',
@@ -23,43 +34,25 @@ const typeOfItems = {
     symbol: 'symbol',
     function: 'function',
 };
-export const escape = (val) => val.replace(escapeRegex, escapeMap[val]);
-// -- TODO: Doesn't seem to be useds
-export const callable = (value) => typeof value === 'function';
-export const defined = (value) => value !== undefined;
-// -- END
-export const dump = (obj, spaces) => JSON.stringify(obj, null, spaces);
-// function waterfall(tasks, done) {
-//   tasks.reduce(
-//     (p, task, i) =>
-//       p.then((res) =>
-//         new Promise((resolve, reject) => {
-//           if (i === 0) task((err, out) => (err ? reject(err) : resolve(out)));
-//           else task(res, (err, out) => (err ? reject(err) : resolve(out)));
-//         })
-//       ),
-//     Promise.resolve(undefined)
-//   )
-//   .then((res) => done(null, res))
-//   .catch((err) => done(err));
-// }
-export const match = (filename, patterns) => Array.isArray(patterns) &&
-    patterns.some((pattern) => filename.match(pattern));
-export const hasOwnProp = (obj, key) => key in obj;
-export function _prettifyError(path, withInternals, err) {
+const escape = (val) => val.replace(escapeRegex, (ch) => exports.escapeMap[ch]);
+exports.escape = escape;
+const dump = (obj, spaces) => JSON.stringify(obj, null, spaces);
+exports.dump = dump;
+const hasOwnProp = (obj, key) => (key ? key in obj : false);
+exports.hasOwnProp = hasOwnProp;
+function _prettifyError(path, withInternals, err) {
     if (!err.update) {
         err = TemplateError(err);
     }
     err.update(path);
-    // Unless they marked the dev flag, show them a trace from here
     if (!withInternals) {
         const old = err;
-        // err = new Error(old.message);
         err.name = old.name;
     }
     return err;
 }
-export function TemplateError(message, lineno = 0, colno = 0) {
+// Update template errors
+function TemplateError(message, lineno = 0, colno = 0) {
     const cause = message instanceof Error ? message : undefined;
     const msg = cause ? `${cause.name}: ${cause.message}` : String(message ?? '');
     const err = new Error(msg, cause ? { cause } : undefined);
@@ -67,6 +60,7 @@ export function TemplateError(message, lineno = 0, colno = 0) {
     err.lineno = lineno;
     err.colno = colno;
     err.firstUpdate = true;
+    console.error('Whats the error?', message, cause);
     if (cause?.stack) {
         Object.defineProperty(err, 'stack', {
             configurable: true,
@@ -78,10 +72,10 @@ export function TemplateError(message, lineno = 0, colno = 0) {
     err.update = (path) => {
         let prefix = `(${path || 'unknown path'})`;
         if (err.firstUpdate) {
-            if (err.lineno && err.colno)
-                prefix += ` [Line ${err.lineno}, Column ${err.colno}]`;
-            else if (err.lineno)
-                prefix += ` [Line ${err.lineno}]`;
+            if (err?.lineno && err?.colno)
+                prefix += ` [Line ${err?.lineno}, Column ${err?.colno}]`;
+            else if (err?.lineno)
+                prefix += ` [Line ${err?.lineno}]`;
         }
         prefix += '\n  '; // newline + indentation
         err.message = prefix + (err.message || '');
@@ -90,26 +84,19 @@ export function TemplateError(message, lineno = 0, colno = 0) {
     };
     return err;
 }
-if (Object.setPrototypeOf) {
-    Object.setPrototypeOf(TemplateError.prototype, Error.prototype);
-}
-else {
-    TemplateError.prototype = Object.create(Error.prototype, {
-        constructor: {
-            value: TemplateError,
-        },
-    });
-}
-export const isFunction = (obj) => typeof obj === typeOfItems.function;
-export const isArray = (obj) => Array.isArray(obj);
-export const isString = (obj) => typeof obj === typeOfItems.string;
-export const isObject = (obj) => ObjProto.toString.call(obj) === '[object Object]';
-export const _prepareAttributeParts = (attr) => (typeof attr === 'string' ? attr.split('.') : [attr]);
-export function getAttrGetter(attribute) {
-    const parts = _prepareAttributeParts(attribute);
+const isFunction = (obj) => typeof obj === typeOfItems.function;
+exports.isFunction = isFunction;
+const isString = (obj) => typeof obj === typeOfItems.string;
+exports.isString = isString;
+const isObject = (obj) => ObjProto.toString.call(obj) === '[object Object]';
+exports.isObject = isObject;
+const _prepareAttributeParts = (attr) => (typeof attr === 'string' ? attr.split('.') : [attr]);
+exports._prepareAttributeParts = _prepareAttributeParts;
+function getAttrGetter(attribute) {
+    const parts = (0, exports._prepareAttributeParts)(attribute);
     return function (item) {
         let _item = item; //TODO fix any
-        for (let i = 0; i < parts.length; i++) {
+        for (let i = 0; i < parts?.length; i++) {
             const part = parts[i];
             // If item is not an object, and we still got parts to handle, it means
             // that something goes wrong. Just roll out to undefined in that case.
@@ -123,10 +110,10 @@ export function getAttrGetter(attribute) {
         return _item;
     };
 }
-export function groupBy(obj, val, throwOnUndefined) {
+function groupBy(obj, val, throwOnUndefined) {
     const result = {};
-    const iterator = isFunction(val) ? val : getAttrGetter(val);
-    for (let i = 0; i < obj.length; i++) {
+    const iterator = (0, exports.isFunction)(val) ? val : getAttrGetter(val);
+    for (let i = 0; i < obj?.length; i++) {
         const value = obj[i];
         const key = iterator(value, i);
         if (key === undefined && throwOnUndefined) {
@@ -139,41 +126,42 @@ export function groupBy(obj, val, throwOnUndefined) {
     }
     return result;
 }
-export function toArray(obj) {
+function toArray(obj) {
     return ArrayProto.slice.call(obj);
 }
-export function without(array = [], ...contains) {
+function without(array = [], ...contains) {
     const result = [];
     for (const item of array) {
         if (!contains.includes(item))
-            result.push(item);
+            result?.push(item);
     }
     return result;
 }
-export const repeat = (char_, n) => {
+const repeat = (char_, n) => {
     let str = '';
     for (let i = 0; i < n; i++) {
         str += char_;
     }
     return str;
 };
-export function each(obj, func, context) {
+exports.repeat = repeat;
+function each(obj, func, context) {
     if (!obj)
         return;
     if (ArrayProto.forEach && obj.forEach === ArrayProto.forEach) {
         obj.forEach(func, context);
     }
-    else if (obj.length === +obj.length) {
-        for (let i = 0, l = obj.length; i < l; i++) {
+    else if (obj?.length === +obj?.length) {
+        for (let i = 0, l = obj?.length; i < l; i++) {
             func.call(context, obj[i], i, obj);
         }
     }
 }
-export function asyncIter(arr, iter, cb) {
+function asyncIter(arr, iter, cb) {
     let i = -1;
     function next() {
         i++;
-        if (i < arr.length) {
+        if (i < arr?.length) {
             iter(arr[i], i, next, cb);
         }
         else {
@@ -182,9 +170,9 @@ export function asyncIter(arr, iter, cb) {
     }
     next();
 }
-export function asyncFor(obj, iter, cb) {
+function asyncFor(obj, iter, cb) {
     const keys = Object.keys(obj || {});
-    const len = keys.length;
+    const len = keys?.length;
     let i = -1;
     function next() {
         i++;
@@ -198,16 +186,58 @@ export function asyncFor(obj, iter, cb) {
     }
     next();
 }
-export const indexOf = ArrayProto.indexOf;
-export const keys_ = Object.keys;
-export const _entries = Object.entries;
-export const _values = Object.values;
-export function inOperator(key, val) {
-    if (Array.isArray(val) || isString(val)) {
+function inOperator(key, val) {
+    if (Array.isArray(val) || (0, exports.isString)(val)) {
         return val.indexOf(key) !== -1;
     }
-    else if (isObject(val)) {
+    else if ((0, exports.isObject)(val)) {
         return key in val;
     }
     throw new Error('Cannot use "in" operator to search for "' + key + '" in unexpected types.');
 }
+const RESET = '\x1b[0m';
+const WARN = '\x1b[33m';
+const ERR = '\x1b[31m';
+const HEADER = '\x1b[95m';
+const OKBLUE = '\x1b[94m';
+const OKCYAN = '\x1b[96m';
+const OKGREEN = '\x1b[92m';
+const WARNING = '\x1b[93m';
+const FAIL = '\x1b[91m';
+const ENDC = '\x1b[0m';
+const BOLD = '\x1b[1m';
+const UNDERLINE = '\x1b[4m';
+const isObjectOrArray = (msg) => {
+    const parts = Array.isArray(msg) ? msg : [msg];
+    return parts
+        .map((i) => {
+        if (typeof i === 'string')
+            return i;
+        if (typeof i === 'number' ||
+            typeof i === 'bigint' ||
+            typeof i === 'boolean')
+            return String(i);
+        if (i instanceof Error)
+            return i.stack ?? i.message;
+        if (i && typeof i === 'object') {
+            try {
+                return JSON.stringify(i);
+            }
+            catch {
+                return '[Unserializable object]';
+            }
+        }
+        return String(i); // undefined, null, symbol, function, etc
+    })
+        .join('');
+};
+exports.p = {
+    log: (...msg) => process.stdout.write(`[INFO] ${isObjectOrArray(msg)}\n`),
+    debug: (...msg) => process.stdout.write(`${OKBLUE}[DEBUG] ${isObjectOrArray(msg)}${RESET}\n`),
+    warn: (...msg) => process.stdout.write(`${WARN}[WARN] ${isObjectOrArray(msg)}${RESET}\n`),
+    err: (...msg) => process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`),
+    exit: (...msg) => {
+        process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`);
+        process.exit(1);
+    },
+};

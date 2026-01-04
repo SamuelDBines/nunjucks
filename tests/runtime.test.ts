@@ -2,7 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 
 // adjust paths to your repo layout
-import runtime, {
+import {
 	Frame,
 	asyncAll,
 	fromIterator,
@@ -10,8 +10,7 @@ import runtime, {
 	memberLookup,
 	suppressValue,
 } from '../nunjucks-ts/src/runtime';
-
-import * as lib from '../nunjucks-ts/src/lib';
+import * as runtime from '../nunjucks-ts/src/runtime';
 
 describe('runtime.ts', () => {
 	describe('Frame', () => {
@@ -26,11 +25,11 @@ describe('runtime.ts', () => {
 		it('push/pop sets parent and topLevel semantics', () => {
 			const root = new Frame(null);
 			expect(root.parent).toBe(null);
-			expect(root.topLevel).toBe(false);
+			expect(root.topLevel).toBe(true);
 
 			const child = root.push(false);
 			expect(child.parent).toBe(root);
-			expect(child.topLevel).toBe(true);
+			expect(child.topLevel).toBe(false);
 
 			expect(child.pop()).toBe(root);
 		});
@@ -41,7 +40,7 @@ describe('runtime.ts', () => {
 
 			const child = parent.push(false);
 			child.set('x', 2, true); // resolveUp
-
+			console.log('Parent is', parent, child, parent.get('x'), child.get('x'));
 			expect(parent.get('x')).toBe(2);
 			expect(child.get('x')).toBe(null); // because it wrote to parent
 		});

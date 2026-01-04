@@ -1,20 +1,7 @@
+// DONE: Sat Jan 3
 import path from 'path';
 import fs from 'node:fs';
 import EventEmitter from 'events';
-import { Environment } from './environment';
-
-let chokidar;
-
-// --- INTERFACES ---
-type AnyFn = (...args: any[]) => any;
-// type Ctor<T = object> = abstract new (...args: any[]) => T;
-// type WithTypename<T> = T & { readonly typename: string };
-type ParentThis = { parent?: AnyFn };
-
-interface IObj {
-	typename: string;
-}
-
 interface ILoader {
 	watch: boolean;
 	noCache: boolean;
@@ -34,57 +21,6 @@ interface IWebLoader extends ILoader {
 }
 
 // --- FUNCTION ---
-function parentWrap<P>(parent: unknown, prop: P): any {
-	if (typeof parent !== 'function' || typeof prop !== 'function') return prop;
-
-	return function (this: ParentThis, ...args: any[]): any {
-		const tmp = this.parent;
-		this.parent = parent as AnyFn;
-		const res = (prop as AnyFn).apply(this, args);
-		this.parent = tmp;
-		return res;
-	};
-}
-
-type Ctor<Args extends any[] = any[], Instance = any> = new (
-	...args: Args
-) => Instance;
-
-// Might need this
-type ExtendProps = {
-	fields: string[];
-	init?: (...args: any[]) => void;
-};
-
-// --- CLASSES ---
-
-export class Obj implements IObj {
-	extname?: string;
-	__typename?: string;
-	constructor(...args: any[]) {
-		this.init(...args);
-		this.__typename = this.constructor.name;
-	}
-
-	init(...args: any[]) {}
-	get typename(): string {
-		return this.constructor.name;
-	}
-
-	static extend(
-		name: string,
-		props?: {
-			fields: string[];
-			init?: (...args: any[]) => void;
-		}
-	) {
-		if (typeof name === 'object') {
-			props = name;
-			name = 'anonymous';
-		}
-		return extendClass(this, name, props);
-	}
-}
 
 export class Loader extends EventEmitter implements ILoader {
 	watch: boolean = false;
@@ -102,8 +38,6 @@ export class Loader extends EventEmitter implements ILoader {
 		return this.constructor.name;
 	}
 }
-
-// new Environment([new Loader([])]);
 
 export class PrecompiledLoader extends Loader {
 	precompiled: Record<string, any>;
@@ -218,51 +152,23 @@ interface ILoaderOpts {
 	noCache: boolean;
 }
 export class FileSystemLoader extends Loader {
-	searchPaths: string[];
 	pathsToNames: Record<string, any>;
-	constructor(searchPaths: string[], opts?: ILoaderOpts) {
+	constructor(public searchPaths: string[] = ['.'], opts?: ILoaderOpts) {
 		super();
 		if (typeof opts === 'boolean') {
 			throw '';
 		}
 		this.pathsToNames = {};
 		this.noCache = opts?.noCache || false;
-		this.watch = opts?.watch || false;
-
-		if (searchPaths) {
-			searchPaths = Array.isArray(searchPaths) ? searchPaths : [searchPaths];
-			this.searchPaths = searchPaths.map(path.normalize);
-		} else {
-			this.searchPaths = ['.'];
-		}
-
-		if (this.watch) {
-			// Watch all the templates in the paths and fire an event when
-			// they change
-			try {
-				chokidar = require('chokidar'); // eslint-disable-line global-require
-			} catch (e) {
-				throw new Error('watch requires chokidar to be installed');
-			}
-			const paths = this.searchPaths.filter(fs.existsSync);
-			const watcher = chokidar.watch(paths);
-			watcher.on('all', (event: string, fullname: string) => {
-				fullname = path.resolve(fullname);
-				if (event === 'change' && fullname in this.pathsToNames) {
-					this.emit('update', this.pathsToNames[fullname], fullname);
-				}
-			});
-			watcher.on('error', (error: Error) => {
-				// TODO: added log helper
-				console.log('Watcher error: ' + error);
-			});
-		}
+		this.searchPaths = (
+			Array.isArray(searchPaths) ? searchPaths : [searchPaths]
+		).map(path.normalize);
 	}
 
 	getSource(name: string) {
 		let fullpath = null;
 
-		for (let i = 0; i < this.searchPaths.length; i++) {
+		for (let i = 0; i < this.searchPaths?.length; i++) {
 			const basePath = path.resolve(this.searchPaths[i]);
 			const p = path.resolve(this.searchPaths[i], name);
 			if (p.indexOf(basePath) === 0 && fs.existsSync(p)) {
@@ -287,61 +193,10 @@ export class FileSystemLoader extends Loader {
 	}
 }
 
-// export class NodeResolveLoader extends Loader {
-// 	pathsToNames: Record<string, any>;
-// 	watcher: any;
-// 	constructor(opts?: ILoaderOpts) {
-// 		super();
-// 		this.pathsToNames = {};
-// 		this.noCache = opts?.noCache || false;
-
-// 		if (opts?.watch) {
-// 			try {
-// 				chokidar = require('chokidar'); // eslint-disable-line global-require
-// 			} catch (e) {
-// 				throw new Error('watch requires chokidar to be installed');
-// 			}
-// 			this.watcher = chokidar.watch();
-
-// 			this.watcher.on('change', (fullname: string) => {
-// 				this.emit('update', this.pathsToNames[fullname], fullname);
-// 			});
-// 			this.watcher.on('error', (error: Error) => {
-// 				console.log('Watcher error: ' + error);
-// 			});
-
-// 			this.on('load', (name, source) => {
-// 				this.watcher.add(source.path);
-// 			});
-// 		}
-// 	}
-
-// 	getSource(name: string) {
-// 		// Don't allow file-system traversal
-// 		if (/^\.?\.?(\/|\\)/.test(name)) {
-// 			return null;
-// 		}
-// 		if (/^[A-Z]:/.test(name)) {
-// 			return null;
-// 		}
-
-// 		let fullpath;
-
-// 		try {
-// 			fullpath = require.resolve(name);
-// 		} catch (e) {
-// 			return null;
-// 		}
-
-// 		this.pathsToNames[fullpath] = name;
-
-// 		const source = {
-// 			src: fs.readFileSync(fullpath, 'utf-8'),
-// 			path: fullpath,
-// 			noCache: this.noCache,
-// 		};
-
-// 		this.emit('load', name, source);
-// 		return source;
-// 	}
-// }
+export class MemoryLoader {
+	constructor(private templates: Record<string, string>) {}
+	getSource(name: string) {
+		if (!(name in this.templates)) return null;
+		return { src: this.templates[name], path: name, noCache: true };
+	}
+}

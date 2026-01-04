@@ -1,56 +1,79 @@
-import { _entries, without, isFunction, asyncIter, _prettifyError, indexOf, isString, } from './lib';
-import * as compiler from './compiler';
-import * as filters from './filters';
-import { FileSystemLoader, PrecompiledLoader, } from './loader';
-import globals from './globals';
-import { Obj, EmitterObj } from './loader';
-import runtime from './runtime';
-import expressApp from './express-app';
-const { handleError, Frame } = runtime;
-function waterfall(tasks, done, forceAsync) {
-    let i = 0;
-    function next(err, res) {
-        if (err)
-            return done(err);
-        const task = tasks[i++];
-        if (!task)
-            return done(null, res);
-        // first task: (cb), others: (res, cb)
-        if (task.length <= 1)
-            task(next);
-        else
-            task(res, next);
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
     }
-    next(null, undefined);
-}
-export const asap = typeof queueMicrotask === 'function'
-    ? queueMicrotask
-    : (fn) => {
-        Promise.resolve().then(fn);
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
     };
-export function callbackAsap(cb, err, res) {
-    asap(() => cb(err, res));
-}
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Template = exports.Context = exports.Environment = void 0;
+const events_1 = __importDefault(require("events"));
+const lib_1 = require("./lib");
+const compiler = __importStar(require("./compiler"));
+const filters = __importStar(require("./filters"));
+const loader_1 = require("./loader");
+const globals_1 = require("./globals");
+const runtime_1 = require("./runtime");
+const express_app_1 = require("./express-app");
+const runtime = __importStar(require("./runtime"));
+// const rootHelper: RootRenderFunctionProps = (cb) => (env, context, frame, runtime, cb) => {
+// 	try {
+// 		cb(null, 'hello');
+// 	} catch (e) {
+// 		cb(e, null);
+// 	}
+// };
+const root = (env, context, frame, runtime, cb) => {
+    try {
+        cb(null, 'hello');
+    }
+    catch (e) {
+        cb(e, null);
+    }
+};
 const noopTmplSrc = {
     type: 'code',
     obj: {
-        root(env, context, frame, runtime, cb) {
-            try {
-                cb(null, '');
-            }
-            catch (e) {
-                cb(handleError(e, null, null));
-            }
-        },
+        root: root,
     },
 };
-export class Environment extends EmitterObj {
+class Environment extends events_1.default {
     throwOnUndefined = false;
     trimBlocks = false;
     lstripBlocks = false;
     dev = true;
     autoescape = true;
-    loaders = [new FileSystemLoader(['views'])];
+    loaders = [new loader_1.FileSystemLoader(['views'])];
     asyncFilters = [];
     ctx;
     // TODO: figure out types here
@@ -58,32 +81,23 @@ export class Environment extends EmitterObj {
     extensions = {};
     filters = {};
     cache = {};
-    tests = {};
     globals;
-    constructor(loaders = [], opts) {
-        super(loaders, opts);
-        this.init(loaders, opts);
-    }
-    init(loaders = [], opts) {
+    constructor(opts) {
+        super();
         this.dev = opts?.dev || true;
         this.throwOnUndefined = opts?.throwOnUndefined || false;
         this.trimBlocks = opts?.trimBlocks || false;
         this.lstripBlocks = opts?.lstripBlocks || false;
         this.autoescape = opts?.autoescape || true;
-        this.loaders = loaders;
-        // It's easy to use precompiled templates: just include them
-        // before you configure nunjucks and this will automatically
-        // pick it up and use it
+        this.loaders = opts?.loaders || [new loader_1.FileSystemLoader(['views'])];
         if (typeof window !== 'undefined' && window.nunjucksPrecompiled) {
-            this.loaders.unshift(new PrecompiledLoader(window.nunjucksPrecompiled));
+            this.loaders.unshift(new loader_1.PrecompiledLoader(window.nunjucksPrecompiled));
         }
         this._initLoaders();
-        this.globals = globals();
+        this.globals = (0, globals_1.globals)();
         this.filters = {};
-        this.tests = {};
         // TODO: Running on init before initialized? Surely not used
-        _entries(filters).forEach(([name, filter]) => this.addFilter(name, filter));
-        // _entries(tests).forEach(([name, test]) => this.addTest(name, test));
+        Object.entries(filters).forEach(([name, filter]) => this.addFilter(name, filter));
     }
     _initLoaders() {
         this.loaders.forEach((loader) => {
@@ -108,7 +122,7 @@ export class Environment extends EmitterObj {
     addExtension(name, extension) {
         extension.__name = name;
         this.extensions[name] = extension;
-        this.extensionsList.push(extension);
+        this.extensionsList?.push(extension);
         return this;
     }
     removeExtension(name) {
@@ -116,7 +130,7 @@ export class Environment extends EmitterObj {
         if (!extension) {
             return;
         }
-        this.extensionsList = without(this.extensionsList, extension);
+        this.extensionsList = (0, lib_1.without)(this.extensionsList, extension);
         delete this.extensions[name];
     }
     getExtension(name) {
@@ -125,20 +139,10 @@ export class Environment extends EmitterObj {
     hasExtension(name) {
         return !!this.extensions[name];
     }
-    addGlobal(name, value) {
-        this.globals[name] = value;
-        return this;
-    }
-    getGlobal(name) {
-        if (typeof this.globals[name] === 'undefined') {
-            throw new Error('global not found: ' + name);
-        }
-        return this.globals[name];
-    }
     addFilter(name, func, async) {
         var wrapped = func;
         if (async) {
-            this.asyncFilters.push(name);
+            this.asyncFilters?.push(name);
         }
         this.filters[name] = wrapped;
         return this;
@@ -149,46 +153,30 @@ export class Environment extends EmitterObj {
         }
         return this.filters[name];
     }
-    // addTest(name: string, func: Function): Environment {
-    // 	this.tests[name] = func;
-    // 	return this;
-    // }
-    // getTest(name: string) {
-    // 	if (!this.tests[name]) {
-    // 		throw new Error('test not found: ' + name);
-    // 	}
-    // 	return this.tests[name];
-    // }
     resolveTemplate(loader, parentName, filename) {
         let isRelative = loader.isRelative && parentName ? loader.isRelative(filename) : false;
         return isRelative && loader.resolve
             ? loader.resolve(parentName, filename)
             : filename;
     }
-    getTemplate(name, eagerCompile, parentName, ignoreMissing, cb) {
-        var that = this;
-        var tmpl = null;
+    getTemplate(name, cb, opts) {
+        lib_1.p.log('Getting template');
+        let that = this;
+        let tmpl = null;
+        const parentName = opts?.parentName || null;
+        const eagerCompile = opts?.eagerCompile || false;
+        const ignoreMissing = opts?.ignoreMissing || false;
         if (name && name.raw) {
-            // this fixes autoescape for templates referenced in symbols
             name = name.raw;
-        }
-        if (isFunction(parentName)) {
-            cb = parentName;
-            parentName = null;
-            eagerCompile = eagerCompile || false;
-        }
-        if (isFunction(eagerCompile)) {
-            cb = eagerCompile;
-            eagerCompile = false;
         }
         if (name instanceof Template) {
             tmpl = name;
         }
-        else if (typeof name !== 'string') {
+        else if (!(0, lib_1.isString)(name)) {
             throw new Error('template names must be a string: ' + name);
         }
         else {
-            for (let i = 0; i < this.loaders.length; i++) {
+            for (let i = 0; i < this.loaders?.length; i++) {
                 const loader = this.loaders[i];
                 tmpl = loader.cache[this.resolveTemplate(loader, parentName, name)];
                 if (tmpl) {
@@ -202,11 +190,9 @@ export class Environment extends EmitterObj {
             }
             if (cb) {
                 cb(null, tmpl);
-                return undefined;
+                return;
             }
-            else {
-                return tmpl;
-            }
+            return tmpl;
         }
         let syncResult;
         const createTemplate = (err, info) => {
@@ -218,19 +204,11 @@ export class Environment extends EmitterObj {
                     cb(err);
                     return;
                 }
-                else {
-                    throw err;
-                }
+                throw err;
             }
-            let newTmpl;
-            if (!info) {
-                newTmpl = new Template(noopTmplSrc, this, '', eagerCompile);
-            }
-            else {
-                newTmpl = new Template(info.src, this, info.path, eagerCompile);
-                if (!info.noCache) {
-                    info.loader.cache[name] = newTmpl;
-                }
+            const newTmpl = new Template(info?.src || noopTmplSrc, this, info.path || '', eagerCompile);
+            if (!info.noCache) {
+                info.loader.cache[name] = newTmpl;
             }
             if (cb) {
                 cb(null, newTmpl);
@@ -239,7 +217,7 @@ export class Environment extends EmitterObj {
                 syncResult = newTmpl;
             }
         };
-        asyncIter(this.loaders, (loader, i, next, done) => {
+        (0, lib_1.asyncIter)(this.loaders, (loader, _i, next, done) => {
             function handle(err, src) {
                 if (err) {
                     done(err);
@@ -252,7 +230,6 @@ export class Environment extends EmitterObj {
                     next();
                 }
             }
-            // Resolve name relative to parentName
             name = that.resolveTemplate(loader, parentName, name);
             if (loader.async) {
                 loader.getSource(name, handle);
@@ -264,10 +241,11 @@ export class Environment extends EmitterObj {
         return syncResult;
     }
     express(app) {
-        return expressApp(this, app);
+        return (0, express_app_1.express)(this, app);
     }
     render(name, ctx, cb) {
-        if (isFunction(ctx)) {
+        lib_1.p.warn('TRYING TO RENDER', ctx);
+        if ((0, lib_1.isFunction)(ctx)) {
             cb = ctx;
             ctx = null;
         }
@@ -278,42 +256,73 @@ export class Environment extends EmitterObj {
         let syncResult = null;
         this.getTemplate(name, (err, tmpl) => {
             if (err && cb) {
-                callbackAsap(cb, err);
+                cb(err);
             }
             else if (err) {
                 throw err;
             }
             else {
+                lib_1.p.log('Getting template');
                 syncResult = tmpl.render(ctx, cb);
             }
         });
-        return syncResult;
+        // p.log('ALREADY RETURNED', syncResult);
+        // return syncResult;
     }
     renderString(src, ctx, opts, cb) {
-        if (isFunction(opts)) {
+        if ((0, lib_1.isFunction)(opts)) {
             cb = opts;
             opts = {};
         }
         opts = opts || {};
-        const tmpl = new Template(src, this, opts.path);
-        return tmpl.render(ctx, cb);
+        return new Template(src, this, opts.path).render(ctx, cb);
+    }
+    get typename() {
+        return this.constructor.name;
     }
     waterfall(tasks, callback, forceAsync) {
-        return waterfall(tasks, callback, forceAsync);
+        return function waterfall(tasks, done) {
+            let i = 0;
+            function next(err, res) {
+                if (err) {
+                    lib_1.p.err(err);
+                    return done(err);
+                }
+                const task = tasks[i++];
+                if (!task)
+                    return done(null, res);
+                // first task: (cb), others: (res, cb)
+                if (task?.length <= 1)
+                    task(next);
+                else
+                    task(res, next);
+            }
+            next(null, undefined);
+        };
     }
 }
-export class Context extends Obj {
-    env = new Environment();
-    ctx = {};
+exports.Environment = Environment;
+class Context {
+    ctx;
+    blocks;
+    env;
+    lineno;
+    colno;
     exported = [];
-    blocks = {};
     compiled = false;
-    init(ctx = {}, blocks = {}, env = new Environment()) {
+    constructor(ctx = {}, blocks = {}, env = new Environment(), lineno = 0, colno = 0) {
+        this.ctx = ctx;
+        this.blocks = blocks;
         this.env = env;
+        this.lineno = lineno;
+        this.colno = colno;
         this.ctx = { ...ctx };
         Object.keys(blocks).forEach((name) => {
             this.addBlock(name, blocks[name]);
         });
+    }
+    get typename() {
+        return 'Context';
     }
     lookup(name) {
         // This is one of the most called functions, so optimize for
@@ -333,7 +342,9 @@ export class Context extends Obj {
     }
     addBlock(name, block) {
         this.blocks[name] = this.blocks[name] || [];
-        this.blocks[name].push(block);
+        lib_1.p.warn('\nBlocks added are: ', this.blocks[name], block);
+        if (typeof this.blocks[name]?.push === 'function')
+            this.blocks[name]?.push(block);
         return this;
     }
     getBlock(name) {
@@ -344,7 +355,7 @@ export class Context extends Obj {
     }
     // TODO: fix any here
     getSuper(env, name, block, frame, runtime, cb) {
-        var idx = indexOf(this.blocks[name] || [], block);
+        var idx = (this.blocks[name] || []).indexOf(block);
         var blk = this.blocks[name][idx + 1];
         var context = this;
         if (idx === -1 || !blk) {
@@ -353,7 +364,7 @@ export class Context extends Obj {
         blk(env, context, frame, runtime, cb);
     }
     addExport(name) {
-        this.exported.push(name);
+        this.exported?.push(name);
     }
     getExported() {
         var exported = {};
@@ -363,17 +374,22 @@ export class Context extends Obj {
         return exported;
     }
 }
-export class Template extends Obj {
+exports.Context = Context;
+class Template {
+    lineno;
+    colno;
     env = new Environment();
-    tmplProps = {};
+    tmplProps;
     tmplStr = {};
     path = '';
     blocks;
     compiled = false;
-    rootRenderFunc;
-    init(src, env = new Environment(), path, eagerCompile) {
+    rootRenderFunction;
+    constructor(src, env = new Environment(), path, eagerCompile, lineno = 0, colno = 0) {
+        this.lineno = lineno;
+        this.colno = colno;
         this.env = env;
-        if (isString(src)) {
+        if ((0, lib_1.isString)(src)) {
             this.tmplStr = src;
         }
         else {
@@ -385,21 +401,17 @@ export class Template extends Obj {
                     this.tmplStr = src.obj;
                     break;
                 default:
+                    lib_1.p.err(src);
                     throw new Error(`Unexpected template object type ${src.type}; expected 'code', or 'string'`);
             }
         }
-        // else {
-        // 	throw new Error(
-        // 		'src must be a string or an object describing the source'
-        // 	);
-        // }
         this.path = path;
         if (eagerCompile) {
             try {
                 this._compile();
             }
             catch (err) {
-                throw _prettifyError(this.path, this.env.dev, err);
+                throw (0, lib_1._prettifyError)(this.path, this.env.dev, err);
             }
         }
         else {
@@ -412,6 +424,7 @@ export class Template extends Obj {
             ctx = {};
         }
         else if (typeof parentFrame === 'function') {
+            lib_1.p.log('Parent frame set as cb');
             cb = parentFrame;
             parentFrame = null;
         }
@@ -419,51 +432,63 @@ export class Template extends Obj {
         // code of another template, and the internal system
         // depends on the sync/async nature of the parent template
         // to be inherited, so force an async callback
-        const forceAsync = !parentFrame;
         // Catch compile errors for async rendering
         try {
             this.compile();
         }
         catch (e) {
-            const err = _prettifyError(this.path, this.env.dev, e);
+            const err = (0, lib_1._prettifyError)(this.path, this.env.dev, e);
             if (cb) {
-                return callbackAsap(cb, err);
+                return cb(err);
             }
             else {
                 throw err;
             }
         }
         const context = new Context(ctx || {}, this.blocks, this.env);
-        const frame = parentFrame ? parentFrame.push(true) : new Frame();
+        const frame = parentFrame ? parentFrame?.push(true) : new runtime_1.Frame();
         frame.topLevel = true;
         let syncResult = null;
         let didError = false;
-        // @ts-ignore
-        this.rootRenderFunc(this.env, context, frame, runtime, (err, res) => {
+        // p.log(
+        // 	'Before setup: ',
+        // 	this.env,
+        // 	'\nctx:',
+        // 	context,
+        // 	'\nFrame: ',
+        // 	frame,
+        // 	'\nRuntime: ',
+        // 	runtime
+        // );
+        // p.log(this.env, context, frame, runtime);
+        if (!this.rootRenderFunction)
+            this.rootRenderFunction = root;
+        this.rootRenderFunction(this.env, context, frame, runtime, (err, res) => {
             // TODO: this is actually a bug in the compiled template (because waterfall
             // tasks are both not passing errors up the chain of callbacks AND are not
             // causing a return from the top-most render function). But fixing that
             // will require a more substantial change to the compiler.
+            // if (cb && typeof res !== 'undefined') {
+            // 	// prevent multiple calls to cb
+            // 	p.log('SOMEHOW HERE');
+            // 	resolve('Somehow here');
+            // 	return;
+            // }
             if (didError && cb && typeof res !== 'undefined') {
                 // prevent multiple calls to cb
                 return;
             }
             if (err) {
-                err = _prettifyError(this.path, this.env.dev, err);
+                lib_1.p.err('err: ', err);
+                err = (0, lib_1._prettifyError)(this.path, this.env.dev, err);
+                cb(err);
                 didError = true;
+                return;
             }
             if (cb) {
-                if (forceAsync) {
-                    callbackAsap(cb, err, res);
-                }
-                else {
-                    cb(err, res);
-                }
+                cb(err, res);
             }
             else {
-                if (err) {
-                    throw err;
-                }
                 syncResult = res;
             }
         });
@@ -491,11 +516,25 @@ export class Template extends Obj {
                 throw e;
             }
         }
-        const frame = parentFrame ? parentFrame.push() : new Frame();
+        const frame = parentFrame ? parentFrame?.push() : new runtime_1.Frame();
         frame.topLevel = true;
         // Run the rootRenderFunc to populate the context with exported vars
         const context = new Context(ctx || {}, this.blocks, this.env);
-        this.rootRenderFunc(this.env, context, frame, runtime, (err) => {
+        // p.log(
+        // 	'Before setup: ',
+        // 	this.env,
+        // 	'\nctx:',
+        // 	context,
+        // 	'\nFrame: ',
+        // 	frame,
+        // 	'\nRuntime: ',
+        // 	runtime
+        // );
+        // p.log('rootRenderFunc: ', this.rootRenderFunc);
+        if (!this.rootRenderFunction)
+            this.rootRenderFunction = root;
+        lib_1.p.err('rootRenderFunction', this.rootRenderFunction);
+        this.rootRenderFunction(this.env, context, frame, runtime, (err) => {
             if (err) {
                 cb(err, null);
             }
@@ -505,22 +544,24 @@ export class Template extends Obj {
         });
     }
     compile() {
-        if (!this.compiled) {
+        if (!this.compiled)
             this._compile();
-        }
     }
     _compile() {
-        var props;
+        let props;
         if (this.tmplProps) {
+            lib_1.p.log('tmplProps is: ', this.tmplProps);
             props = this.tmplProps;
         }
         else {
             const source = compiler.compile(this.tmplStr, this.env.asyncFilters, this.env.extensionsList, this.path, {});
+            lib_1.p.log('Source is: ', source);
             const func = new Function(source); // eslint-disable-line no-new-func
             props = func();
         }
         this.blocks = this._getBlocks(props);
-        this.rootRenderFunc = props.root;
+        lib_1.p.log('Props root render function: ', props, props.root);
+        this.rootRenderFunction = props.root;
         this.compiled = true;
     }
     _getBlocks(props) {
@@ -533,7 +574,4 @@ export class Template extends Obj {
         return blocks;
     }
 }
-export default {
-    Environment: Environment,
-    Template: Template,
-};
+exports.Template = Template;

@@ -1,37 +1,39 @@
-/* eslint-disable func-names */
+const path = require('path');
+const nunjucks = require('../../dist/index');
+const express = require('express');
 
-'use strict';
+const PORT = 13300;
 
-var path = require('path');
-var nunjucks = require('../..');
-var express = require('express');
+const app = express();
 
-var app = express();
-nunjucks.configure(path.join(__dirname, 'views'), {
-  autoescape: true,
-  express: app,
-  watch: true
+const viewsDir = path.join(__dirname, 'views');
+app.set('view engine', 'njk');
+app.set('views', viewsDir);
+console.warn(viewsDir);
+nunjucks.configure(viewsDir, {
+	autoescape: true,
+	express: app,
 });
 
 // app
 
 app.use(express.static(__dirname));
 
-app.use(function(req, res, next) {
-  res.locals.user = 'hello';
-  next();
+app.use(function (req, res, next) {
+	res.locals.user = 'hello';
+	next();
 });
 
-app.get('/', function(req, res) {
-  res.render('index.html', {
-    username: 'James Long <strong>copyright</strong>'
-  });
+app.get('/', function (req, res) {
+	res.render('index', {
+		username: 'James Long <strong>copyright</strong>',
+	});
 });
 
-app.get('/about', function(req, res) {
-  res.render('about.html');
+app.get('/about', function (req, res) {
+	res.render('about.html');
 });
 
-app.listen(4000, function() {
-  console.log('Express server running on http://localhost:4000');
+app.listen(PORT, function () {
+	console.log('Express server running on http://localhost:' + PORT);
 });

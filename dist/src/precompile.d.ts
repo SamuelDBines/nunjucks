@@ -11,14 +11,5 @@ type IPrecompileOpts = {
     include?: string[];
     exclude?: string[];
 };
-declare function precompileString(str: string, opts?: IPrecompileOpts): string;
-declare function precompile(input: any, opts?: IPrecompileOpts): string;
-export declare function _precompile(str: string, name: string, env?: Environment): {
-    name: string;
-    template: any;
-};
-declare const _default: {
-    precompile: typeof precompile;
-    precompileString: typeof precompileString;
-};
-export default _default;
+export declare function precompile(input: any, opts?: IPrecompileOpts): string;
+export {};

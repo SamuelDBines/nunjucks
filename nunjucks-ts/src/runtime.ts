@@ -4,9 +4,10 @@ import {
 	TemplateError,
 	asyncIter,
 	asyncFor,
-	inOperator,
 	isString,
 	EscapeChar,
+	p,
+	isObject,
 } from './lib';
 import { Callback } from './types';
 
@@ -19,20 +20,21 @@ const supportsIterators =
 // we know how to access variables. Block tags can introduce special
 // variables, for example.
 export class Frame {
-	parent: Frame | null = null;
-	topLevel: boolean = false;
+	topLevel: boolean = true;
 	variables: Record<string, any>;
-	isolateWrites: any; // TODO: find out the type
-	constructor(parent?: Frame | null, isolateWrites?: any) {
+	constructor(
+		public parent: Frame | null = null,
+		public isolateWrites: boolean = false
+	) {
 		this.variables = Object.create(null);
 		this.parent = parent;
-		this.topLevel = !!parent || false;
+		this.topLevel = parent === null;
 		// if this is true, writes (set) should never propagate upwards past
 		// this frame to its parent (though reads may).
 		this.isolateWrites = isolateWrites;
 	}
 
-	set(name: string, val: any, resolveUp: boolean) {
+	set(name: string, val: any, resolveUp: boolean = false) {
 		// Allow variables with dots by automatically creating the
 		// nested structure
 		let parts = name.split('.');
@@ -40,13 +42,13 @@ export class Frame {
 		let frame: any = this;
 
 		if (resolveUp) {
-			if ((frame = this.resolve(parts[0], true))) {
+			if (frame == this.resolve(parts[0], true)) {
 				frame.set(name, val);
 				return;
 			}
 		}
 
-		for (let i = 0; i < parts.length - 1; i++) {
+		for (let i = 0; i < parts?.length - 1; i++) {
 			const id = parts[i];
 
 			if (!obj[id]) {
@@ -55,24 +57,25 @@ export class Frame {
 			obj = obj[id];
 		}
 
-		obj[parts[parts.length - 1]] = val;
+		obj[parts[parts?.length - 1]] = val;
 	}
 
 	get(name: string) {
-		var val = this.variables[name];
+		let val = this.variables[name];
 		if (val !== undefined) {
 			return val;
 		}
 		return null;
 	}
 
-	lookup(name: string): Frame | null {
-		var p = this.parent;
-		var val = this.variables[name];
+	lookup(name: string): Frame {
+		let pt = this.parent;
+		let val = this.variables[name];
+		p.debug(pt, val, name, this.variables);
 		if (val !== undefined) {
 			return val;
 		}
-		return p && p.lookup(name);
+		return pt && pt.lookup(name);
 	}
 
 	resolve(name: string, forWrite: boolean): Frame | null | undefined {
@@ -84,7 +87,7 @@ export class Frame {
 		return p && p.resolve(name, forWrite);
 	}
 
-	push(isolateWrites: any) {
+	push(isolateWrites: boolean = false) {
 		return new Frame(this, isolateWrites);
 	}
 
@@ -93,36 +96,40 @@ export class Frame {
 	}
 }
 
-function makeMacro(argNames: string[], kwargNames: string[], func: Function) {
+export function makeMacro(
+	argNames: string[],
+	kwargNames: string[],
+	func: Function
+) {
 	return function macro(this: any, ...macroArgs: any[]) {
 		var argCount = numArgs(macroArgs);
 		var args;
 		var kwargs = getKeywordArgs(macroArgs);
 
-		if (argCount > argNames.length) {
-			args = macroArgs.slice(0, argNames.length);
+		if (argCount > argNames?.length) {
+			args = macroArgs.slice(0, argNames?.length);
 
 			// Positional arguments that should be passed in as
 			// keyword arguments (essentially default values)
-			macroArgs.slice(args.length, argCount).forEach((val, i) => {
-				if (i < kwargNames.length) {
+			macroArgs.slice(args?.length, argCount).forEach((val, i) => {
+				if (i < kwargNames?.length) {
 					kwargs[kwargNames[i]] = val;
 				}
 			});
-			args.push(kwargs);
-		} else if (argCount < argNames.length) {
+			args?.push(kwargs);
+		} else if (argCount < argNames?.length) {
 			args = macroArgs.slice(0, argCount);
 
-			for (let i = argCount; i < argNames.length; i++) {
+			for (let i = argCount; i < argNames?.length; i++) {
 				const arg = argNames[i];
 
 				// Keyword arguments that should be passed as
 				// positional arguments, i.e. the caller explicitly
 				// used the name of a positional arg
-				args.push(kwargs[arg]);
+				args?.push(kwargs[arg]);
 				delete kwargs[arg];
 			}
-			args.push(kwargs);
+			args?.push(kwargs);
 		} else {
 			args = macroArgs;
 		}
@@ -131,16 +138,16 @@ function makeMacro(argNames: string[], kwargNames: string[], func: Function) {
 	};
 }
 
-function makeKeywordArgs(obj: any) {
+export function makeKeywordArgs(obj: any) {
 	obj.__keywords = true;
 	return obj;
 }
 
-const isKeywordArgs = (obj: object) =>
+export const isKeywordArgs = (obj: object) =>
 	obj && Object.prototype.hasOwnProperty.call(obj, '__keywords');
 
-function getKeywordArgs(args: any[]) {
-	let len = args.length;
+export function getKeywordArgs(args: any[]) {
+	let len = args?.length;
 	if (len) {
 		const lastArg = args[len - 1];
 		if (isKeywordArgs(lastArg)) {
@@ -150,8 +157,8 @@ function getKeywordArgs(args: any[]) {
 	return {};
 }
 
-function numArgs(args: any[]) {
-	const len = args.length;
+export function numArgs(args: any[]) {
+	const len = args?.length;
 	if (len === 0) return 0;
 
 	const lastArg = args[len - 1];
@@ -161,14 +168,14 @@ function numArgs(args: any[]) {
 	return len;
 }
 
-function copySafeness(dest: any, target: string): string {
+export function copySafeness(dest: any, target: string): string {
 	if (isString(dest)) {
 		return target;
 	}
 	return target.toString();
 }
 
-function markSafe(val: any) {
+export function markSafe(val: any) {
 	const type = typeof val;
 
 	if (type === 'string') {
@@ -197,6 +204,7 @@ export function suppressValue(val: EscapeChar, autoescape: boolean) {
 
 export function ensureDefined(val: any, lineno: number = 0, colno: number = 0) {
 	if (val === null || val === undefined) {
+		p.err('attempted to output null or undefined value');
 		throw TemplateError(
 			'attempted to output null or undefined value',
 			lineno + 1,
@@ -206,7 +214,11 @@ export function ensureDefined(val: any, lineno: number = 0, colno: number = 0) {
 	return val;
 }
 
-export function memberLookup(obj: Record<string, any>, val: string) {
+export function memberLookup(
+	obj: Record<string, any>,
+	val: string,
+	own: boolean = false
+) {
 	if (!obj) return undefined;
 	if (typeof obj[val] === 'function') {
 		return (...args: any[]) => obj[val].apply(obj, args);
@@ -214,7 +226,12 @@ export function memberLookup(obj: Record<string, any>, val: string) {
 	return obj[val];
 }
 
-function callWrap(obj: any, name: string, context: Context, args: any[]) {
+export function callWrap(
+	obj: any,
+	name: string,
+	context: Context,
+	args: any[]
+) {
 	if (!obj) {
 		throw new Error(
 			'Unable to call `' + name + '`, which is undefined or falsey'
@@ -226,19 +243,28 @@ function callWrap(obj: any, name: string, context: Context, args: any[]) {
 	return obj.apply(context, args);
 }
 
-function contextOrFrameLookup(context: any, frame: Frame, name: string) {
-	var val = frame.lookup(name);
-	return val !== undefined ? val : context.lookup(name);
+export function contextOrFrameLookup(
+	context: Context,
+	frame: Frame,
+	name: string
+) {
+	let val = frame.lookup(name);
+	return val ? val : context.lookup(name);
 }
 
-function handleError(error: any, lineno: number = 0, colno: number = 0) {
-	if (error.lineno) return error;
+export function handleError(error: any, lineno: number = 0, colno: number = 0) {
+	if (error?.lineno) return error;
 	return TemplateError(error, lineno, colno);
 }
 
-function asyncEach(arr: any[], dimen: number, iter: Function, cb: Callback) {
+export function asyncEach(
+	arr: any[],
+	dimen: number,
+	iter: Function,
+	cb: Callback
+) {
 	if (Array.isArray(arr)) {
-		const len = arr.length;
+		const len = arr?.length;
 		// TODO: confirm types here
 
 		asyncIter(
@@ -255,7 +281,7 @@ function asyncEach(arr: any[], dimen: number, iter: Function, cb: Callback) {
 						iter(item[0], item[1], item[2], i, len, next);
 						break;
 					default:
-						item.push(i, len, next);
+						item?.push(i, len, next);
 						iter.apply(this, item);
 				}
 			},
@@ -300,13 +326,13 @@ export function asyncAll(
 	}
 
 	if (Array.isArray(arr)) {
-		len = arr.length;
+		len = arr?.length;
 		outputArr = new Array(len);
 
 		if (len === 0) {
 			cb(null, '');
 		} else {
-			for (let i = 0; i < arr.length; i++) {
+			for (let i = 0; i < arr?.length; i++) {
 				const item = arr[i];
 
 				switch (dimen) {
@@ -320,20 +346,20 @@ export function asyncAll(
 						func(item[0], item[1], item[2], i, len, done);
 						break;
 					default:
-						item.push(i, len, done);
+						item?.push(i, len, done);
 						func.apply(this, item);
 				}
 			}
 		}
 	} else {
 		const keys = Object.keys(arr || {});
-		len = keys.length;
+		len = keys?.length;
 		outputArr = new Array(len);
 
 		if (len === 0) {
 			cb(null, '');
 		} else {
-			for (let i = 0; i < keys.length; i++) {
+			for (let i = 0; i < keys?.length; i++) {
 				const k = keys[i];
 				func(k, arr[k], i, len, done);
 			}
@@ -350,21 +376,13 @@ export function fromIterator(arr: any[]) {
 	return arr;
 }
 
-export default {
-	Frame,
-	makeMacro,
-	makeKeywordArgs,
-	numArgs,
-	ensureDefined,
-	memberLookup,
-	contextOrFrameLookup,
-	callWrap,
-	handleError,
-	keys: Object.keys,
-	copySafeness,
-	markSafe,
-	asyncEach,
-	asyncAll,
-	inOperator,
-	fromIterator,
-};
+export function inOperator(key: string, val: any) {
+	if (Array.isArray(val) || isString(val)) {
+		return val.indexOf(key) !== -1;
+	} else if (isObject(val)) {
+		return key in val;
+	}
+	throw new Error(
+		'Cannot use "in" operator to search for "' + key + '" in unexpected types.'
+	);
+}

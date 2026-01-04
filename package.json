@@ -4,7 +4,8 @@
   "version": "3.2.4",
   "author": "James Long <longster@gmail.com>",
   "dependencies": {
-    "commander": "^5.1.0"
+    "commander": "^5.1.0",
+    "express": "^5.2.1"
   },
   "browser": "./browser/nunjucks.js",
   "main": "dist/index.js",
@@ -18,7 +19,12 @@
     "test:runner": "cross-env NODE_ENV=test NODE_PATH=tests/test-node-pkgs scripts/testrunner.js",
     "vitest:browser": "vitest init browser",
     "test": "vitest",
-    "test:browser": "vitest"
+    "test:smoke": "npx ts-node scripts/smoke.ts",
+    "test:verbose": "vitest --reporter=verbose",
+    "test:browser": "vitest",
+    "demo:build": "pnpm run build && node ./samples/express/main.js",
+    "demo:dev": "nodemon",
+    "demo:local": "node ./samples/express/main.js"
   },
   "bin": {
     "nunjucks-precompile": "./bin/precompile"
@@ -50,6 +56,7 @@
   "devDependencies": {
     "@types/node": "^25.0.3",
     "@vitest/browser-playwright": "^4.0.16",
+    "nodemon": "^3.1.11",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
   }

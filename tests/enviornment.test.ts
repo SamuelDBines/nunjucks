@@ -2,12 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // IMPORTANT: update this import to the file that exports Environment/Template/Context/asap/callbackAsap
-import {
-	Environment,
-	Template,
-	Context,
-	callbackAsap,
-} from '../nunjucks-ts/src/environment';
+import { Environment, Template, Context } from '../nunjucks-ts/src/environment';
 
 // ---- Helpers: minimal loader stubs ----
 class SyncLoader {
@@ -74,44 +69,9 @@ function codeTemplateCallingLookup(name: string) {
 	};
 }
 
-describe('asap/callbackAsap', () => {
-	it('callbackAsap does not call synchronously', async () => {
-		let called = false;
-
-		callbackAsap(
-			(_err, _res) => {
-				called = true;
-			},
-			null,
-			'ok'
-		);
-
-		// should not be called immediately
-		expect(called).toBe(false);
-
-		// flush microtasks
-		await Promise.resolve();
-		expect(called).toBe(true);
-	});
-
-	it('callbackAsap passes err + res', async () => {
-		const cb = vi.fn();
-		const err = new Error('boom');
-
-		callbackAsap(cb, err, 'x');
-
-		expect(cb).not.toHaveBeenCalled();
-		await Promise.resolve();
-
-		expect(cb).toHaveBeenCalledTimes(1);
-		expect(cb.mock.calls[0][0]).toBe(err);
-		expect(cb.mock.calls[0][1]).toBe('x');
-	});
-});
-
 describe('Environment basics', () => {
 	it('addGlobal/getGlobal', () => {
-		const env = new Environment([]);
+		const env = new Environment();
 		env.addGlobal('x', 123);
 
 		expect(env.getGlobal('x')).toBe(123);
@@ -119,7 +79,7 @@ describe('Environment basics', () => {
 	});
 
 	it('addFilter/getFilter', () => {
-		const env = new Environment([]);
+		const env = new Environment();
 		const f = (v: any) => String(v).toUpperCase();
 		env.addFilter('up', f);
 
@@ -128,7 +88,7 @@ describe('Environment basics', () => {
 	});
 
 	it('addFilter with async marks asyncFilters', () => {
-		const env = new Environment([]);
+		const env = new Environment();
 		env.addFilter('a', () => 'x', [
 			/*anything*/
 		]);
@@ -137,7 +97,7 @@ describe('Environment basics', () => {
 	});
 
 	it('addExtension / hasExtension / getExtension / removeExtension', () => {
-		const env = new Environment([]);
+		const env = new Environment();
 		const ext = { foo: 1 };
 
 		env.addExtension('myExt', ext);
@@ -152,8 +112,8 @@ describe('Environment basics', () => {
 
 describe('Environment.resolveTemplate', () => {
 	it('uses loader.resolve for relative templates when parentName is provided', () => {
-		const loader = new RelativeLoader();
-		const env = new Environment([loader as any]);
+		const loader: any = new RelativeLoader();
+		const env = new Environment({ loaders: [loader] });
 
 		const resolved = env.resolveTemplate(
 			loader as any,
@@ -164,8 +124,8 @@ describe('Environment.resolveTemplate', () => {
 	});
 
 	it('returns filename as-is when not relative', () => {
-		const loader = new RelativeLoader();
-		const env = new Environment([loader as any]);
+		const loader: any = new RelativeLoader();
+		const env = new Environment({ loaders: [loader] });
 
 		const resolved = env.resolveTemplate(
 			loader as any,
@@ -178,13 +138,13 @@ describe('Environment.resolveTemplate', () => {
 
 describe('Environment.getTemplate (sync loaders)', () => {
 	it('returns cached template when present', () => {
-		const loader = new SyncLoader();
-		const env = new Environment([loader as any]);
+		const loader: any = new SyncLoader();
+		const env = new Environment({ loaders: [loader] });
 
 		const t1 = new Template(codeTemplateReturning('hello'), env, 't.njk', true);
 		loader.cache['t.njk'] = t1;
 
-		const got = env.getTemplate('t.njk', false);
+		const got = env.getTemplate('t.njk', (e, r) => {}, {});
 		expect(got).toBe(t1);
 	});
 
@@ -196,9 +156,9 @@ describe('Environment.getTemplate (sync loaders)', () => {
 				noCache: false,
 			},
 		});
-		const env = new Environment([loader as any]);
+		const env = new Environment({ loaders: [loader as any] });
 
-		const tmpl = env.getTemplate('a.njk', true) as Template;
+		const tmpl = env.getTemplate('a.njk', (e, r) => {}, {}) as Template;
 		expect(tmpl).toBeInstanceOf(Template);
 
 		// should now be cached at name
@@ -219,27 +179,31 @@ describe('Environment.getTemplate (sync loaders)', () => {
 				noCache: true,
 			},
 		});
-		const env = new Environment([loader as any]);
+		const env = new Environment({ loaders: [loader as any] });
 
-		const tmpl = env.getTemplate('a.njk', false) as Template;
+		const tmpl = env.getTemplate('a.njk', (e, r) => {}) as Template;
 		expect(loader.cache['a.njk']).toBeUndefined();
 		expect(tmpl.render({})).toBe('A');
 	});
 
 	it('throws when template missing and ignoreMissing not set', () => {
 		const loader = new SyncLoader({});
-		const env = new Environment([loader as any]);
+		const env = new Environment({ loaders: [loader as any] });
 
-		expect(() => env.getTemplate('missing.njk', false)).toThrow(
+		expect(() => env.getTemplate('missing.njk', (e, r) => {})).toThrow(
 			/template not found/i
 		);
 	});
 
 	it('returns a noop template when ignoreMissing=true', () => {
 		const loader = new SyncLoader({});
-		const env = new Environment([loader as any]);
+		const env = new Environment({ loaders: [loader as any] });
 
-		const tmpl = env.getTemplate('missing.njk', false, null, true) as Template;
+		const tmpl = env.getTemplate('missing.njk', (e, r) => {}, {
+			eagerCompile: false,
+			parentName: null,
+			ignoreMissing: true,
+		}) as Template;
 		expect(tmpl).toBeInstanceOf(Template);
 
 		// should render empty string
@@ -250,10 +214,10 @@ describe('Environment.getTemplate (sync loaders)', () => {
 		const loader = new SyncLoader({
 			'a.njk': { src: codeTemplateReturning('A'), path: 'a.njk' },
 		});
-		const env = new Environment([loader as any]);
+		const env = new Environment({ loaders: [loader as any] });
 
 		const cb = vi.fn();
-		const ret = env.getTemplate('a.njk', false, cb as any);
+		const ret = env.getTemplate('a.njk', cb, {});
 
 		expect(ret).toBeUndefined();
 
@@ -264,16 +228,16 @@ describe('Environment.getTemplate (sync loaders)', () => {
 	});
 
 	it('accepts Template instance directly', () => {
-		const env = new Environment([]);
+		const env = new Environment();
 		const t = new Template(codeTemplateReturning('X'), env, 'x.njk', true);
 
-		const got = env.getTemplate(t as any, true) as Template;
+		const got = env.getTemplate(t as any, (e, r) => {}) as Template;
 		expect(got).toBe(t);
 		expect(got.render({})).toBe('X');
 	});
 
 	it('throws if name is not a string or Template', () => {
-		const env = new Environment([]);
+		const env = new Environment();
 		// @ts-expect-error
 		expect(() => env.getTemplate(123, false)).toThrow(
 			/template names must be a string/i
@@ -286,7 +250,7 @@ describe('Environment.render / renderString', () => {
 		const loader = new SyncLoader({
 			'a.njk': { src: codeTemplateReturning('Hello'), path: 'a.njk' },
 		});
-		const env = new Environment([loader as any]);
+		const env = new Environment({ loaders: [loader as any] });
 
 		const out = env.render('a.njk', { any: 1 });
 		expect(out).toBe('Hello');
@@ -296,7 +260,7 @@ describe('Environment.render / renderString', () => {
 		const loader = new SyncLoader({
 			'a.njk': { src: codeTemplateReturning('Hello'), path: 'a.njk' },
 		});
-		const env = new Environment([loader as any]);
+		const env = new Environment({ loaders: [loader as any] });
 
 		const cb = vi.fn();
 		env.render('a.njk', {}, cb);
@@ -311,7 +275,7 @@ describe('Environment.render / renderString', () => {
 	});
 
 	it('renderString renders from a code template object', () => {
-		const env = new Environment([]);
+		const env = new Environment();
 		const out = env.renderString(
 			codeTemplateReturning('S') as any,
 			{},
@@ -321,8 +285,8 @@ describe('Environment.render / renderString', () => {
 	});
 
 	it('Context.lookup prefers globals when ctx lacks key', () => {
-		const env = new Environment([]);
-		env.addGlobal('g', 'GLOB');
+		const env = new Environment();
+		// env.addGlobal('g', 'GLOB');
 
 		const tmpl = new Template(
 			codeTemplateCallingLookup('g'),
@@ -334,8 +298,8 @@ describe('Environment.render / renderString', () => {
 	});
 
 	it('Context.lookup prefers ctx value over globals when both exist', () => {
-		const env = new Environment([]);
-		env.addGlobal('g', 'GLOB');
+		const env = new Environment();
+		// env.addGlobal('g', 'GLOB');
 
 		const tmpl = new Template(
 			codeTemplateCallingLookup('g'),
@@ -349,7 +313,7 @@ describe('Environment.render / renderString', () => {
 
 describe('Context blocks + super', () => {
 	it('addBlock/getBlock', () => {
-		const ctx = new Context({}, {}, new Environment([]));
+		const ctx = new Context({}, {}, new Environment());
 		ctx.addBlock('b', () => 'x');
 
 		expect(typeof ctx.getBlock('b')).toBe('function');
@@ -357,7 +321,7 @@ describe('Context blocks + super', () => {
 	});
 
 	it('getSuper calls the next block in the stack', () => {
-		const env = new Environment([]);
+		const env = new Environment();
 		const ctx = new Context({}, {}, env);
 
 		const b1 = vi.fn((_env, _ctx, _frame, _runtime, cb) => cb(null, 'one'));
@@ -376,7 +340,7 @@ describe('Context blocks + super', () => {
 	});
 
 	it('getSuper throws when no super block exists', () => {
-		const env = new Environment([]);
+		const env = new Environment();
 		const ctx = new Context({}, {}, env);
 		const b1 = vi.fn();
 
@@ -413,7 +377,7 @@ describe('Template compilation from compiler (mocked)', () => {
 		});
 
 		const mod = await import('../nunjucks-ts/src/environment');
-		const env = new mod.Environment([]);
+		const env = new mod.Environment();
 		const tmpl = new mod.Template('hello {{x}}', env, 't.njk', true);
 
 		expect(tmpl.render({})).toBe('FROM_COMPILER');

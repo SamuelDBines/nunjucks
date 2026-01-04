@@ -1,8 +1,4 @@
 import EventEmitter from 'events';
-interface IObj {
-    typename: string;
-    init: () => void;
-}
 interface ILoader {
     watch: boolean;
     noCache: boolean;
@@ -20,25 +16,13 @@ interface IWebLoader extends ILoader {
         content: string;
     }, src?: string) => void): void;
 }
-export declare class Obj implements IObj {
-    extname?: string;
-    __typename?: string;
-    constructor(...args: any[]);
-    init(...args: any[]): void;
-    get typename(): string;
-    static extend(name: any, props?: any): any;
-}
-export declare class EmitterObj extends EventEmitter {
-    constructor(...args: any[]);
-    get typename(): string;
-    static extend(name: any | string, props?: any): any;
-}
-export declare class Loader extends EmitterObj implements ILoader {
+export declare class Loader extends EventEmitter implements ILoader {
     watch: boolean;
     noCache: boolean;
     cache: Record<string, any>;
     resolve(from: string, to: string): string;
     isRelative(filename: string): boolean;
+    get typename(): string;
 }
 export declare class PrecompiledLoader extends Loader {
     precompiled: Record<string, any>;
@@ -73,17 +57,7 @@ interface ILoaderOpts {
 export declare class FileSystemLoader extends Loader {
     searchPaths: string[];
     pathsToNames: Record<string, any>;
-    constructor(searchPaths: string[], opts?: ILoaderOpts);
-    getSource(name: string): {
-        src: string;
-        path: any;
-        noCache: boolean;
-    };
-}
-export declare class NodeResolveLoader extends Loader {
-    pathsToNames: Record<string, any>;
-    watcher: any;
-    constructor(opts?: ILoaderOpts);
+    constructor(searchPaths?: string[], opts?: ILoaderOpts);
     getSource(name: string): {
         src: string;
         path: any;

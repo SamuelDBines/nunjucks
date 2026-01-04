@@ -1,6 +1,6 @@
 // test/precompile.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import precompileMod, { _precompile } from '../nunjucks-ts/src/precompile';
+import { precompile } from '../nunjucks-ts/src/precompile';
 /**
  * IMPORTANT:
  * - Adjust import paths (`../src/...`) to match your repo.
@@ -154,52 +154,10 @@ describe('precompile.ts', () => {
 		};
 	});
 
-	describe('_precompile', () => {
-		it('normalizes windows backslashes in name and calls compile with env flags', () => {
-			const env = new FakeEnv([]);
-			env.throwOnUndefined = true;
-			env.asyncFilters = ['af1'];
-			env.extensionsList = [{ tags: ['x'] }];
-
-			const out = _precompile('Hello', 'dir\\file.njk', env as any);
-
-			expect(out).toEqual({
-				name: 'dir/file.njk',
-				template: 'CODE:dir/file.njk',
-			});
-
-			expect(compileMock).toHaveBeenCalledTimes(1);
-			const args = compileMock.mock.calls[0];
-			expect(args[0]).toBe('Hello');
-			expect(args[1]).toEqual(['af1']);
-			expect(args[2]).toEqual([{ tags: ['x'] }]);
-			expect(args[3]).toBe('dir/file.njk');
-			expect(args[4]).toEqual({ throwOnUndefined: true });
-		});
-
-		it('wraps compile errors with TemplateError + _prettifyError', () => {
-			compileMock.mockImplementation(() => {
-				throw new Error('boom');
-			});
-
-			expect(() =>
-				_precompile('X', 't.njk', new FakeEnv([]) as any)
-			).toThrowError(/^\s*Error: PRETTY:t\.njk:/);
-
-			expect(templateErrorMock).toHaveBeenCalledTimes(1);
-			expect(prettifyMock).toHaveBeenCalledTimes(1);
-
-			const [name, flag, err] = prettifyMock.mock.calls[0];
-			expect(name).toBe('t.njk');
-			expect(flag).toBe(false);
-			expect(err).toBeInstanceOf(Error);
-		});
-	});
-
 	describe('default export precompile()', () => {
 		it('precompiles a single file path', () => {
 			const env = new FakeEnv([]);
-			const out = (precompileMod as any).precompile('single.njk', {
+			const out = precompile('single.njk', {
 				isString: false,
 				env,
 				name: 'myname.njk',
@@ -218,7 +176,7 @@ describe('precompile.ts', () => {
 		it('precompiles a directory: includes files matching include patterns and traverses subdirs not excluded', () => {
 			const env = new FakeEnv([]);
 
-			const out = (precompileMod as any).precompile('templates', {
+			const out = precompile('templates', {
 				isString: false,
 				env,
 				include: [/\.njk$/], // only *.njk
@@ -244,7 +202,7 @@ describe('precompile.ts', () => {
 			);
 
 			expect(() =>
-				(precompileMod as any).precompile('templates', {
+				precompile('templates', {
 					isString: false,
 					include: [/\.njk$/],
 					exclude: [/skipdir\//],
@@ -265,7 +223,7 @@ describe('precompile.ts', () => {
 				}
 			);
 
-			const out = (precompileMod as any).precompile('templates', {
+			const out = precompile('templates', {
 				isString: false,
 				include: [/\.njk$/],
 				exclude: [/skipdir\//],
@@ -288,7 +246,7 @@ describe('precompile.ts', () => {
 			// Your code intends to throw when opts.name missing, but currently checks `_precompile.name`
 			// which is truthy, so it will fall through and then crash later.
 			expect(() =>
-				(precompileMod as any).precompile('Hello', {
+				precompile('Hello', {
 					isString: true,
 					// name intentionally missing
 					wrapper: wrapperMock,
@@ -297,7 +255,7 @@ describe('precompile.ts', () => {
 		});
 
 		it('compiles a string when name is provided', () => {
-			const out = (precompileMod as any).precompile('Hello', {
+			const out = precompile('Hello', {
 				isString: true,
 				name: 'inline.njk',
 				env: new FakeEnv([]),

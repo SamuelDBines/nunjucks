@@ -6,9 +6,11 @@ import {
 	getAttrGetter,
 	toArray,
 	groupBy,
+	p,
+	escape,
 } from './lib';
 
-import r from './runtime';
+import { copySafeness, markSafe, makeMacro } from './runtime';
 
 const normalize = (value: any, defaultValue: string = ''): string =>
 	!value ? defaultValue : value;
@@ -18,32 +20,32 @@ export function batch(arr: any, lineCount: number, fillWith: number) {
 	const res = [];
 	let tmp = [];
 
-	for (i < arr.length; i++; ) {
-		if (i % lineCount === 0 && tmp.length) {
-			res.push(tmp);
+	for (i < arr?.length; i++; ) {
+		if (i % lineCount === 0 && tmp?.length) {
+			res?.push(tmp);
 			tmp = [];
 		}
-		tmp.push(arr[i]);
+		tmp?.push(arr[i]);
 	}
 
-	if (tmp.length) {
+	if (tmp?.length) {
 		if (fillWith) {
-			for (i = tmp.length; i < lineCount; i++) {
-				tmp.push(fillWith);
+			for (i = tmp?.length; i < lineCount; i++) {
+				tmp?.push(fillWith);
 			}
 		}
-		res.push(tmp);
+		res?.push(tmp);
 	}
 	return res;
 }
 
 export function center(str: string = '', width: number = 80) {
-	if (str.length >= width) return str;
+	if (str?.length >= width) return str;
 
-	const spaces = width - str.length;
+	const spaces = width - str?.length;
 	const pre = repeat(' ', spaces / 2 - (spaces % 2));
 	const post = repeat(' ', spaces / 2);
-	return r.copySafeness(str, pre + str + post);
+	return copySafeness(str, pre + str + post);
 }
 
 export function default_(val: any, def: any, bool: boolean = false) {
@@ -65,7 +67,7 @@ export function dictsort(
 	// deliberately include properties from the object's prototype
 	for (let k in val) {
 		// @ts-ignore
-		array.push([k, val[k]]);
+		array?.push([k, val[k]]);
 	}
 
 	let si;
@@ -98,18 +100,18 @@ export function dictsort(
 	return array;
 }
 
-export const escape = (str: string): string =>
-	r.markSafe(escape(str.toString()));
+export const _escape = (str: string): string =>
+	markSafe(escape(str.toString()));
 export const e = escape;
-export const safe = (str: string = '') => r.markSafe(str.toString());
+export const safe = (str: string = '') => markSafe(str.toString());
 
 export function forceescape(str: string) {
 	str = str === null || str === undefined ? '' : str;
-	return r.markSafe(escape(str.toString()));
+	return markSafe(escape(str.toString()));
 }
 
 export function groupby(this: any, arr: any[], attr: string) {
-	return groupBy(arr, attr, this.env.opts.throwOnUndefined);
+	return groupBy(arr, attr, this.env.throwOnUndefined);
 }
 
 export function indent(
@@ -130,10 +132,10 @@ export function indent(
 		})
 		.join('\n');
 
-	return r.copySafeness(str, res);
+	return copySafeness(str, res);
 }
 
-export function join(arr: any[], del = '', attr: string) {
+export function join(arr: any[], del = '', attr?: string) {
 	if (attr) arr = arr.map((v) => v[attr]);
 	return arr.join(del);
 }
@@ -141,8 +143,8 @@ export function join(arr: any[], del = '', attr: string) {
 export function length(
 	str: string | Map<any, any> | Object | any[] | Set<any>
 ): number {
-	if (Array.isArray(str) || isString(str)) return str.length;
-	if (isObject(str)) Object.keys(str).length;
+	if (Array.isArray(str) || isString(str)) return str?.length;
+	if (isObject(str)) Object.keys(str)?.length;
 	if (str instanceof Map || str instanceof Set) return str.size;
 	return 0;
 }
@@ -159,12 +161,12 @@ export function list(val: string | object | any[]): any[] {
 }
 
 export const random = (arr: any[]) =>
-	arr[Math.floor(Math.random() * arr.length)];
+	arr[Math.floor(Math.random() * arr?.length)];
 
 function getSelectOrReject(
 	expectedTestResult: boolean = false
 ): (a: any[], s: string, b: any) => any[] {
-	return function filter(this: any, arr, testName = 'truthy', secondArg) {
+	return function filter(this: any, arr, testName = 'truthy', secondArg?: any) {
 		const context = this;
 		const test = context.env.getTest(testName);
 
@@ -219,7 +221,7 @@ export function replace(
 	// ShortCircuits
 	if (old === '') {
 		res = new_ + str.split('').join(new_) + new_;
-		return r.copySafeness(str, res);
+		return copySafeness(str, res);
 	}
 
 	let nextIndex = str.indexOf(old);
@@ -235,7 +237,7 @@ export function replace(
 		// replacement, to the result
 		res += str.substring(pos, nextIndex) + new_;
 		// Increment our pointer in the src string
-		pos = nextIndex + old.length;
+		pos = nextIndex + old?.length;
 		count++;
 		// See if there are any more replacements to be made
 		nextIndex = str.indexOf(old, pos);
@@ -243,11 +245,11 @@ export function replace(
 
 	// We've either reached the end, or done the max # of
 	// replacements, tack on any remaining string
-	if (pos < str.length) {
+	if (pos < str?.length) {
 		res += str.substring(pos);
 	}
 
-	return r.copySafeness(originalStr, res);
+	return copySafeness(originalStr, res);
 }
 
 export function reverse(val: any[] = []) {
@@ -255,7 +257,7 @@ export function reverse(val: any[] = []) {
 	if (isString(val)) {
 		arr = list(val);
 		arr.reverse();
-		return r.copySafeness(val, arr.join(''));
+		return copySafeness(val, arr.join(''));
 	}
 	arr.reverse();
 	return arr;
@@ -281,8 +283,8 @@ export function round(
 }
 
 export function slice(arr: any[], slices: number, fillWith: boolean = false) {
-	const sliceLength = Math.floor(arr.length / slices);
-	const extra = arr.length % slices;
+	const sliceLength = Math.floor(arr?.length / slices);
+	const extra = arr?.length % slices;
 	const res = [];
 	let offset = 0;
 
@@ -295,9 +297,9 @@ export function slice(arr: any[], slices: number, fillWith: boolean = false) {
 
 		const currSlice = arr.slice(start, end);
 		if (fillWith && i >= extra) {
-			currSlice.push(fillWith);
+			currSlice?.push(fillWith);
 		}
-		res.push(currSlice);
+		res?.push(currSlice);
 	}
 
 	return res;
@@ -310,7 +312,7 @@ export function sum(arr: any, attr: string, start = 0) {
 	return start + arr.reduce((a: number, b: number) => a + b, 0);
 }
 
-export const sort = r.makeMacro(
+export const sort = makeMacro(
 	['value', 'reverse', 'case_sensitive', 'attribute'],
 	[],
 	function sortFilter(
@@ -329,7 +331,7 @@ export const sort = r.makeMacro(
 			let y = attr ? getAttribute(b) : b;
 
 			if (
-				this.env.opts.throwOnUndefined &&
+				this.env.throwOnUndefined &&
 				attr &&
 				(x === undefined || y === undefined)
 			) {
@@ -354,7 +356,7 @@ export const sort = r.makeMacro(
 	}
 );
 
-export const string = (obj: any) => r.copySafeness(obj, obj);
+export const string = (obj: any) => copySafeness(obj, obj);
 
 export function striptags(
 	input: string = '',
@@ -372,12 +374,12 @@ export function striptags(
 	} else {
 		res = trimmedInput.replace(/\s+/gi, ' ');
 	}
-	return r.copySafeness(input, res);
+	return copySafeness(input, res);
 }
 
 export const title = (str: string = '') => {
 	let words = str.split(' ').map((word) => capitalize(word));
-	return r.copySafeness(str, words.join(' '));
+	return copySafeness(str, words.join(' '));
 };
 
 export function truncate(
@@ -388,7 +390,7 @@ export function truncate(
 ): string {
 	let orig = input;
 
-	if (input.length <= length) {
+	if (input?.length <= length) {
 		return input;
 	}
 
@@ -404,14 +406,14 @@ export function truncate(
 	}
 
 	input += end || '...';
-	return r.copySafeness(orig, input);
+	return copySafeness(orig, input);
 }
 
 // TODO: Pretty sure I don't need this
 
 export const capitalize = (str: string = '') => {
 	const ret = lower(str);
-	return r.copySafeness(str, ret.charAt(0).toUpperCase() + ret.slice(1));
+	return copySafeness(str, ret.charAt(0).toUpperCase() + ret.slice(1));
 };
 export const upper = (str: string = '') => str.toUpperCase();
 export const isUpper = (str: string) => str.toUpperCase() === str;
@@ -422,7 +424,7 @@ export function urlencode(obj: string | object | any[]) {
 		return enc(obj);
 	}
 	let keyvals = Array.isArray(obj) ? obj : Object.keys(obj);
-	console.log(keyvals);
+	p.log(keyvals);
 	return keyvals.map(([k, v]) => `${enc(k)}=${enc(v)}`).join('&');
 }
 
@@ -447,7 +449,7 @@ export function urlize(str: string, length: number, nofollow: boolean) {
 		.filter((word) => {
 			// If the word has no length, bail. This can happen for str with
 			// trailing whitespace.
-			return word && word.length;
+			return word && word?.length;
 		})
 		.map((word) => {
 			var matches = word.match(puncRe);
@@ -492,7 +494,7 @@ export const isInt = (n: any) => Number(n) === n && n % 1 === 0;
 
 export const isFloat = (n: any) => Number(n) === n && n % 1 !== 0;
 
-export const int = r.makeMacro(
+export const int = makeMacro(
 	['value', 'default', 'base'],
 	[],
 	function doInt(value: string, defaultValue: number = 0, base = 10) {
@@ -502,13 +504,13 @@ export const int = r.makeMacro(
 );
 
 export const trim = (str: string): string =>
-	r.copySafeness(str, str.replace(/^\s*|\s*$/g, ''));
+	copySafeness(str, str.replace(/^\s*|\s*$/g, ''));
 
 // Aliases
 
 export const first = (arr: any[] = []) => arr[0];
-export const last = (arr: any[] = []) => arr[arr.length - 1];
+export const last = (arr: any[] = []) => arr[arr?.length - 1];
 
 export const lower = (str: string) => normalize(str).toLowerCase();
 export const nl2br = (str = '') =>
-	str ? r.copySafeness(str, str.replace(/\r\n|\n/g, '<br />\n')) : '';
+	str ? copySafeness(str, str.replace(/\r\n|\n/g, '<br />\n')) : '';

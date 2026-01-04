@@ -1,21 +1,25 @@
+import EventEmitter from 'events';
 import { Loader } from './loader';
-import { Obj, EmitterObj } from './loader';
-import { Asap, Callback } from './types';
+import { Callback } from './types';
 declare global {
     interface Window {
         nunjucksPrecompiled?: any;
     }
 }
-export declare const asap: Asap;
-export declare function callbackAsap<E, R>(cb: Callback<E, R>, err: E | null, res?: R): void;
+type getTemplateOps = {
+    eagerCompile?: boolean;
+    parentName?: string | null;
+    ignoreMissing?: boolean;
+};
 interface IEnvironmentOpts {
-    throwOnUndefined: boolean;
-    autoescape: boolean;
-    trimBlocks: boolean;
-    lstripBlocks: boolean;
-    dev: boolean;
+    throwOnUndefined?: boolean;
+    autoescape?: boolean;
+    trimBlocks?: boolean;
+    lstripBlocks?: boolean;
+    dev?: boolean;
+    loaders?: Loader[];
 }
-export declare class Environment extends EmitterObj {
+export declare class Environment extends EventEmitter {
     throwOnUndefined: boolean;
     trimBlocks: boolean;
     lstripBlocks: boolean;
@@ -28,34 +32,34 @@ export declare class Environment extends EmitterObj {
     extensions: Record<string, any>;
     filters: Record<string, any>;
     cache: Record<string, any>;
-    tests: Record<string, any>;
     globals: any;
-    constructor(loaders?: Loader[], opts?: IEnvironmentOpts);
-    init(loaders?: Loader[], opts?: IEnvironmentOpts): void;
+    constructor(opts?: IEnvironmentOpts);
     _initLoaders(): void;
     invalidateCache(): void;
     addExtension(name: string, extension: Record<string, any>): this;
     removeExtension(name: string): void;
     getExtension(name: string): any;
     hasExtension(name: string): boolean;
-    addGlobal(name: string, value: any): Environment;
-    getGlobal(name: string): any;
     addFilter(name: string, func: Function, async?: any[]): this;
     getFilter(name: string): any;
     resolveTemplate(loader: Loader, parentName: string, filename: string): string;
-    getTemplate(name: any, eagerCompile: any, parentName?: string | null, ignoreMissing?: boolean, cb?: Callback): any;
+    getTemplate(name: any, cb?: Callback, opts?: getTemplateOps): any;
     express(app: any): Environment;
-    render(name: any, ctx: any, cb: any): any;
-    renderString(src: any[], ctx: Context, opts: any, cb?: Callback): any;
-    waterfall(tasks: any, callback: Callback, forceAsync: any): void;
+    render(name: string, ctx: any, cb?: Callback): void;
+    renderString(src: any, ctx: any, opts: any, cb?: Callback): any;
+    get typename(): string;
+    waterfall(tasks: any, callback: Callback, forceAsync: any): (tasks: any, done: Callback) => void;
 }
-export declare class Context extends Obj {
-    env: Environment;
+export declare class Context {
     ctx: Record<string, any>;
-    exported: any[];
     blocks: Record<string, any>;
+    env: Environment;
+    lineno: number;
+    colno: number;
+    exported: any[];
     compiled: boolean;
-    init(ctx?: Record<string, any>, blocks?: Record<string, any>, env?: Environment): void;
+    constructor(ctx?: Record<string, any>, blocks?: Record<string, any>, env?: Environment, lineno?: number, colno?: number);
+    get typename(): string;
     lookup(name: string): any;
     setVariable(name: string, val: any): void;
     getVariables(): Record<string, any>;
@@ -69,23 +73,21 @@ type ITemplateSrc = {
     type: 'code' | 'string';
     obj: any;
 };
-export declare class Template extends Obj {
+export declare class Template {
+    lineno: number;
+    colno: number;
     env: Environment;
-    tmplProps: Record<string, any>;
+    tmplProps?: Record<string, any>;
     tmplStr: string | Record<string, any>;
     path: string;
     blocks: any;
     compiled: boolean;
-    rootRenderFunc: any;
-    init(src: ITemplateSrc | string, env: Environment, path: string, eagerCompile: any): void;
-    render(ctx: any, parentFrame: any, cb: Callback): any;
+    rootRenderFunction: any;
+    constructor(src: ITemplateSrc | string, env: Environment, path: string, eagerCompile?: any, lineno?: number, colno?: number);
+    render(ctx: any, parentFrame?: any, cb?: Callback): any;
     getExported(ctx: any, parentFrame: any, cb: Callback): void;
     compile(): void;
     _compile(): void;
     _getBlocks(props: any): {};
 }
-declare const _default: {
-    Environment: typeof Environment;
-    Template: typeof Template;
-};
-export default _default;
+export {};

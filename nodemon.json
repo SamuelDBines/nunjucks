@@ -1,0 +1,12 @@
+{
+  "watch": [
+    "samples/express",
+    "nunjucks-ts"
+  ],
+  "ext": "js,ts,html",
+  "ignore": [
+    "dist",
+    "node_modules"
+  ],
+  "exec": "pnpm demo:build "
+}

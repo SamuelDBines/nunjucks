@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 
 // IMPORTANT: update these imports to your project structure
-import parserMod from '../nunjucks-ts/src/parser';
+import { Parser, parse } from '../nunjucks-ts/src/parser';
 
 import * as lexer from '../nunjucks-ts/src/lexer';
 import {
@@ -65,7 +65,7 @@ import {
 } from '../nunjucks-ts/src/nodes';
 
 function parseRoot(src: string, opts: any = {}, extensions?: any[]) {
-	return parserMod.parse(src, extensions, opts) as any;
+	return parse(src, extensions, opts) as any;
 }
 
 describe('parser.ts', () => {
@@ -374,7 +374,7 @@ describe('parser.ts', () => {
 	it('advanceAfterVariableEnd throws if missing variable end', () => {
 		// Use Parser directly so we can call method
 		const toks = lexer.lex('{{ 1 ', {});
-		const p = new parserMod.Parser(toks);
+		const p = new Parser(toks);
 		// consume VARIABLE_START
 		p.nextToken();
 		p.parseExpression();

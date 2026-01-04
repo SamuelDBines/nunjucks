@@ -1,3 +1,4 @@
+import { Token } from './types';
 export declare const whitespaceChars = " \n\t\r\u00A0";
 export declare const delimChars = "()[]{}%*-+~/#,:|.<>=!";
 export declare const intChars = "0123456789";
@@ -38,7 +39,7 @@ interface ITokenizerOpts {
     lstripBlocks?: boolean;
     tags?: Record<string, any>;
 }
-declare class Tokenizer {
+export declare class Tokenizer {
     str: string;
     index: number;
     len: number;
@@ -50,7 +51,7 @@ declare class Tokenizer {
     tags: Record<string, any>;
     src: any;
     constructor(str: string, opts: ITokenizerOpts);
-    nextToken(): any;
+    nextToken(): Token;
     _parseString(delimiter: string): string;
     _matches(str: string): boolean;
     _extractString(str: string): string;
@@ -68,7 +69,4 @@ declare class Tokenizer {
     previous(): string;
 }
 export declare const lex: (str: string, opts: ITokenizerOpts) => Tokenizer;
-declare const _default: {
-    lex: (str: string, opts: ITokenizerOpts) => Tokenizer;
-};
-export default _default;
+export {};

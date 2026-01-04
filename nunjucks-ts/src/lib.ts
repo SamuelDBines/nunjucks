@@ -38,32 +38,23 @@ export interface ILib {
 	TemplateErr: TemplateErr;
 	escape: (val: EscapeChar) => string;
 	dump: (obj: Record<any, any>, spaces?: string | number) => string;
-	match: (filename: string, patterns: string[]) => boolean;
 	isFunction: (obj: unknown) => boolean;
 	isString: (obj: unknown) => boolean;
 	isObject: (obj: unknown) => boolean;
 }
 export const escape = (val: string) =>
-	val.replace(escapeRegex, (ch) => escapeMap[ch]);
+	val?.replace(escapeRegex, (ch) => escapeMap[ch]);
 
 export type EscapeChar = keyof typeof escapeMap;
 export type TypeOfChar = keyof typeof typeOfItems;
 
-export const callable = (value: any) => typeof value === 'function';
-
-export const defined = (value: any) => value !== undefined;
-
 export const dump = (obj: Record<any, any>, spaces?: string | number) =>
 	JSON.stringify(obj, null, spaces);
-
-export const match = (filename: string, patterns: string[]) =>
-	Array.isArray(patterns) &&
-	patterns.some((pattern) => filename.match(pattern));
 
 export const hasOwnProp = (
 	obj: Record<string | number, any>,
 	key: string | number
-) => key in obj;
+) => (key ? key in obj : false);
 
 export function _prettifyError(
 	path: string,
@@ -78,7 +69,6 @@ export function _prettifyError(
 		const old = err;
 		err.name = old.name;
 	}
-
 	return err;
 }
 
@@ -91,6 +81,7 @@ export type TemplateErr = Error & {
 	update: (path?: string) => TemplateErr;
 };
 
+// Update template errors
 export function TemplateError(
 	message: string | Error,
 	lineno: number = 0,
@@ -103,6 +94,7 @@ export function TemplateError(
 	err.lineno = lineno;
 	err.colno = colno;
 	err.firstUpdate = true;
+	console.error('Whats the error?', message, cause);
 
 	if (cause?.stack) {
 		Object.defineProperty(err, 'stack', {
@@ -116,9 +108,9 @@ export function TemplateError(
 		let prefix = `(${path || 'unknown path'})`;
 
 		if (err.firstUpdate) {
-			if (err.lineno && err.colno)
-				prefix += ` [Line ${err.lineno}, Column ${err.colno}]`;
-			else if (err.lineno) prefix += ` [Line ${err.lineno}]`;
+			if (err?.lineno && err?.colno)
+				prefix += ` [Line ${err?.lineno}, Column ${err?.colno}]`;
+			else if (err?.lineno) prefix += ` [Line ${err?.lineno}]`;
 		}
 
 		prefix += '\n  '; // newline + indentation
@@ -127,16 +119,6 @@ export function TemplateError(
 		return err;
 	};
 	return err;
-}
-
-if (Object.setPrototypeOf) {
-	Object.setPrototypeOf(TemplateError.prototype, Error.prototype);
-} else {
-	TemplateError.prototype = Object.create(Error.prototype, {
-		constructor: {
-			value: TemplateError,
-		},
-	});
 }
 
 export const isFunction = (obj: unknown): obj is Function =>
@@ -158,7 +140,7 @@ export function getAttrGetter(attribute: string): (obj: Object) => any {
 	return function (item: object) {
 		let _item: any = item; //TODO fix any
 
-		for (let i = 0; i < parts.length; i++) {
+		for (let i = 0; i < parts?.length; i++) {
 			const part = parts[i];
 
 			// If item is not an object, and we still got parts to handle, it means
@@ -182,7 +164,7 @@ export function groupBy(
 ) {
 	const result: Record<string, any> = {};
 	const iterator = isFunction(val) ? val : getAttrGetter(val);
-	for (let i = 0; i < obj.length; i++) {
+	for (let i = 0; i < obj?.length; i++) {
 		const value = obj[i];
 		const key = iterator(value, i);
 		if (key === undefined && throwOnUndefined) {
@@ -203,7 +185,7 @@ export function toArray(obj: any) {
 export function without<T>(array: T[] = [], ...contains: T[]) {
 	const result: T[] = [];
 	for (const item of array) {
-		if (!contains.includes(item)) result.push(item);
+		if (!contains.includes(item)) result?.push(item);
 	}
 	return result;
 }
@@ -221,8 +203,8 @@ export function each(obj: any, func: Function, context: any) {
 
 	if (ArrayProto.forEach && obj.forEach === ArrayProto.forEach) {
 		obj.forEach(func, context);
-	} else if (obj.length === +obj.length) {
-		for (let i = 0, l = obj.length; i < l; i++) {
+	} else if (obj?.length === +obj?.length) {
+		for (let i = 0, l = obj?.length; i < l; i++) {
 			func.call(context, obj[i], i, obj);
 		}
 	}
@@ -234,7 +216,7 @@ export function asyncIter(arr: any, iter: Function, cb: Function) {
 	function next() {
 		i++;
 
-		if (i < arr.length) {
+		if (i < arr?.length) {
 			iter(arr[i], i, next, cb);
 		} else {
 			cb();
@@ -250,7 +232,7 @@ export function asyncFor(
 	cb: Callback
 ) {
 	const keys = Object.keys(obj || {});
-	const len = keys.length;
+	const len = keys?.length;
 	let i = -1;
 
 	function next() {
@@ -277,3 +259,66 @@ export function inOperator(key: string, val: any) {
 		'Cannot use "in" operator to search for "' + key + '" in unexpected types.'
 	);
 }
+
+const RESET: string = '\x1b[0m';
+const WARN: string = '\x1b[33m';
+const ERR: string = '\x1b[31m';
+const HEADER = '\x1b[95m';
+const OKBLUE = '\x1b[94m';
+const OKCYAN = '\x1b[96m';
+const OKGREEN = '\x1b[92m';
+const WARNING = '\x1b[93m';
+const FAIL = '\x1b[91m';
+const ENDC = '\x1b[0m';
+const BOLD = '\x1b[1m';
+const UNDERLINE = '\x1b[4m';
+
+const isObjectOrArray = (msg: unknown) => {
+	const parts = Array.isArray(msg) ? msg : [msg];
+
+	return parts
+		.map((i) => {
+			if (typeof i === 'string') return i;
+			if (
+				typeof i === 'number' ||
+				typeof i === 'bigint' ||
+				typeof i === 'boolean'
+			)
+				return String(i);
+			if (i instanceof Error) return i.stack ?? i.message;
+
+			if (i && typeof i === 'object') {
+				try {
+					return JSON.stringify(i);
+				} catch {
+					return '[Unserializable object]';
+				}
+			}
+
+			return String(i); // undefined, null, symbol, function, etc
+		})
+		.join('');
+};
+
+type Log = (...msg: any[]) => void;
+
+export const p: {
+	log: Log;
+	warn: Log;
+	debug: Log;
+	err: Log;
+	exit: Log;
+} = {
+	log: (...msg: any[]) =>
+		process.stdout.write(`[INFO] ${isObjectOrArray(msg)}\n`),
+	debug: (...msg: any[]) =>
+		process.stdout.write(`${OKBLUE}[DEBUG] ${isObjectOrArray(msg)}${RESET}\n`),
+	warn: (...msg: any[]) =>
+		process.stdout.write(`${WARN}[WARN] ${isObjectOrArray(msg)}${RESET}\n`),
+	err: (...msg: any[]) =>
+		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`),
+	exit: (...msg: any[]) => {
+		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`);
+		process.exit(1);
+	},
+};

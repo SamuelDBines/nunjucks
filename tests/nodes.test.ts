@@ -1,4 +1,3 @@
-// test/nodes.test.ts
 import { describe, it, expect } from 'vitest';
 
 // IMPORTANT: update this import path to where your nodes.ts exports live

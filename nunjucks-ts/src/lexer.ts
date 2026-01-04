@@ -1,3 +1,5 @@
+import { Token } from './types';
+
 export const whitespaceChars = ' \n\t\r\u00A0';
 export const delimChars = '()[]{}%*-+~/#,:|.<>=!';
 export const intChars = '0123456789';
@@ -48,7 +50,7 @@ interface ITokenizerOpts {
 	lstripBlocks?: boolean;
 	tags?: Record<string, any>;
 }
-class Tokenizer {
+export class Tokenizer {
 	str: string = '';
 	index: number = 0;
 	len: number = 0;
@@ -61,7 +63,7 @@ class Tokenizer {
 	src: any;
 	constructor(str: string, opts: ITokenizerOpts) {
 		this.str = str;
-		this.len = str.length;
+		this.len = str?.length;
 
 		opts = opts || {};
 
@@ -79,9 +81,9 @@ class Tokenizer {
 		this.lstripBlocks = !!opts.lstripBlocks;
 	}
 
-	nextToken(): any {
-		let lineno = this.lineno;
-		let colno = this.colno;
+	nextToken(): Token {
+		let lineno = this?.lineno;
+		let colno = this?.colno;
 		let tok: string | null;
 
 		if (this.inCode) {
@@ -310,16 +312,16 @@ class Tokenizer {
 						if (
 							this.lstripBlocks &&
 							this._matches(this.tags.BLOCK_START) &&
-							this.colno > 0 &&
+							this?.colno > 0 &&
 							tok &&
-							this.colno <= tok.length
+							this?.colno <= tok?.length
 						) {
 							if (!tok) return;
-							let lastLine = tok.slice(-this.colno);
+							let lastLine = tok.slice(-this?.colno);
 							if (/^\s+$/.test(lastLine)) {
 								// Remove block leading whitespace from beginning of the string
-								tok = tok.slice(0, -this.colno);
-								if (!tok.length) {
+								tok = tok.slice(0, -this?.colno);
+								if (!tok?.length) {
 									// All data removed, collapse to avoid unnecessary nodes
 									// by returning next token (block start)
 									return this.nextToken();
@@ -391,13 +393,13 @@ class Tokenizer {
 	}
 
 	_matches(str: string) {
-		if (this.index + str.length > this.len) return null;
-		return this.str.slice(this.index, this.index + str.length) === str;
+		if (this.index + str?.length > this.len) return null;
+		return this.str.slice(this.index, this.index + str?.length) === str;
 	}
 
 	_extractString(str: string) {
 		if (this._matches(str)) {
-			this.forwardN(str.length);
+			this.forwardN(str?.length);
 			return str;
 		}
 		return null;
@@ -458,7 +460,7 @@ class Tokenizer {
 		}
 
 		// Move forward whatever was matched
-		this.forwardN(matches[0].length);
+		this.forwardN(matches[0]?.length);
 
 		return matches;
 	}

@@ -1,8 +1,8 @@
-import { dump } from './lib';
+import { dump, p } from './lib';
 
 function traverseAndCheck(obj: Node, type: NodeTypeValue, results: any[]) {
 	if (obj instanceof type) {
-		results.push(obj);
+		results?.push(obj);
 	}
 
 	if (obj instanceof Node) {
@@ -11,7 +11,7 @@ function traverseAndCheck(obj: Node, type: NodeTypeValue, results: any[]) {
 }
 export abstract class Node {
 	children: Node[] = [];
-	body: Node;
+	body?: Node;
 	constructor(
 		public lineno = 0,
 		public colno = 0, // public extname = '', // public __typename: string = this.constructor.name, // public fields: string[] = []
@@ -44,15 +44,12 @@ export abstract class Node {
 }
 
 export class Slice extends Node {
-	start: Literal;
-	stop: Literal;
-	step: Literal;
 	constructor(
 		lineno: number,
 		colno: number,
-		start: Literal,
-		stop: Literal,
-		step: Literal
+		public start?: Literal,
+		public stop?: Literal,
+		public step?: Literal
 	) {
 		super(lineno, colno);
 		this.start = start || new NodeList();
@@ -67,15 +64,12 @@ export class Slice extends Node {
 }
 
 export class FromImport extends Node {
-	template: any;
-	names: NodeList;
-	withContext: any;
 	constructor(
 		lineno: number,
 		colno: number,
-		template: string,
-		names: NodeList,
-		withContext: any
+		public template?: string,
+		public names?: NodeList,
+		public withContext?: any
 	) {
 		super(lineno, colno);
 		(this.names = names || new NodeList()), (this.template = template);
@@ -90,8 +84,12 @@ export class FromImport extends Node {
 }
 
 export class Pair extends Node {
-	key: any;
-	constructor(lineno: number, colno: number, key: any, value: any = null) {
+	constructor(
+		lineno: number,
+		colno: number,
+		public key?: any,
+		value: any = null
+	) {
 		super(lineno, colno);
 		this.key = key;
 		this.value = value;
@@ -103,9 +101,12 @@ export class Pair extends Node {
 }
 
 export class LookupVal extends Node {
-	target: any;
-	val: any;
-	constructor(lineno: number, colno: number, target: any, val: any) {
+	constructor(
+		lineno: number,
+		colno: number,
+		public target?: any,
+		public val?: any
+	) {
 		super(lineno, colno);
 		this.target = target;
 		this.val = val;
@@ -116,15 +117,12 @@ export class LookupVal extends Node {
 	}
 }
 export class If extends Node {
-	cond: any;
-	body: any;
-	else_: any;
 	constructor(
 		lineno: number,
 		colno: number,
-		cond?: any,
+		public cond?: any,
 		body?: any,
-		else_?: any
+		public else_?: any
 	) {
 		super(lineno, colno);
 		this.cond = cond;
@@ -138,15 +136,12 @@ export class If extends Node {
 }
 
 export class InlineIf extends Node {
-	cond: any;
-	body: any;
-	else_: any;
 	constructor(
 		lineno: number,
 		colno: number,
-		cond?: any,
+		public cond?: any,
 		body?: any,
-		else_?: any
+		public else_?: any
 	) {
 		super(lineno, colno);
 		this.cond = cond;
@@ -160,18 +155,14 @@ export class InlineIf extends Node {
 }
 
 export class For extends Node {
-	arr: any[] = [];
-	name: Symbol | string = '';
-	body: any;
-	else_: any;
 	static readonly fields = ['arr', 'name', 'body', 'else_'] as const;
 	constructor(
 		lineno: number,
 		colno: number,
-		arr?: any[],
-		name?: Symbol | string,
+		public arr: any = [],
+		public name?: Symbol,
 		body?: any,
-		else_?: any
+		public else_?: any
 	) {
 		super(lineno, colno);
 		this.arr = arr;
@@ -185,21 +176,19 @@ export class For extends Node {
 }
 
 export class Macro extends Node {
-	name: Symbol;
-	args: any;
 	constructor(
 		lineno: number,
 		colno: number,
-		name: Symbol,
-		args: any,
-		body: NodeList | Symbol
+		public name?: Symbol,
+		public args?: any,
+		body?: NodeList
 	) {
 		super(lineno, colno);
 		this.name = name;
 		this.args = args;
 		this.body = body;
 	}
-	static readonly fields = ['name', 'args', 'body'] as const;
+	static fields = ['name', 'args', 'body'];
 	get typename() {
 		return 'Macro' as NodeTypeKey;
 	}
@@ -209,15 +198,13 @@ export class Import extends Node {
 	get typename() {
 		return 'Import' as NodeTypeKey;
 	}
-	template: any;
-	target: any;
-	withContext: any;
+
 	constructor(
 		lineno: number,
 		colno: number,
-		template: any,
-		target: any,
-		withContext: any
+		public template?: any,
+		public target?: any,
+		public withContext?: any
 	) {
 		super(lineno, colno);
 		this.template = template;
@@ -227,11 +214,14 @@ export class Import extends Node {
 }
 
 export class Block extends Node {
-	name: Node | string = '';
-	body: any;
-	constructor(lineno: number, colno: number, body?: any, name?: Node | string) {
+	constructor(
+		lineno: number,
+		colno: number,
+		public body?: any,
+		public name?: Node | Value
+	) {
 		super(lineno, colno);
-		this.name = name || '';
+		this.name = name;
 		this.body = body;
 	}
 	static readonly fields = ['name', 'body'] as const;
@@ -241,9 +231,12 @@ export class Block extends Node {
 }
 
 export class Super extends Node {
-	blockName: any;
-	symbol: Symbol;
-	constructor(lineno: number, colno: number, blockName?: any, symbol?: any) {
+	constructor(
+		lineno: number,
+		colno: number,
+		public blockName?: any,
+		public symbol?: Symbol
+	) {
 		super(lineno, colno);
 		this.blockName = blockName;
 		this.symbol = symbol;
@@ -254,8 +247,7 @@ export class Super extends Node {
 	}
 }
 export class TemplateRef extends Node {
-	template: any;
-	constructor(lineno: number, colno: number, template?: any) {
+	constructor(lineno: number, colno: number, public template?: any) {
 		super(lineno, colno);
 		this.template = template;
 	}
@@ -266,9 +258,12 @@ export class TemplateRef extends Node {
 }
 
 export class FunCall extends Node {
-	name: Node;
-	args: any;
-	constructor(lineno: number, colno: number, name?: Node, args?: any) {
+	constructor(
+		lineno: number,
+		colno: number,
+		public name?: Node,
+		public args?: any
+	) {
 		super(lineno, colno);
 		this.name = name;
 		this.args = args;
@@ -280,13 +275,11 @@ export class FunCall extends Node {
 }
 
 export class Include extends Node {
-	template: any;
-	ignoreMissing: boolean;
 	constructor(
 		lineno: number,
 		colno: number,
-		template?: any[],
-		ignoreMissing?: boolean
+		public template?: any[],
+		public ignoreMissing: boolean = false
 	) {
 		super(lineno, colno);
 		this.template = template;
@@ -311,15 +304,12 @@ export class Set extends Node {
 }
 
 export class Switch extends Node {
-	cases: any;
-	expr: any;
-	_default: any;
 	constructor(
 		lineno: number,
 		colno: number,
-		expr?: any,
-		cases?: any,
-		_default?: any
+		public expr?: any,
+		public cases?: any,
+		public _default?: any
 	) {
 		super(lineno, colno);
 		this.expr = expr || '';
@@ -333,9 +323,7 @@ export class Switch extends Node {
 }
 
 export class Case extends Node {
-	cond: any;
-	body: any;
-	constructor(lineno: number, colno: number, cond?: any, body?: any) {
+	constructor(lineno: number, colno: number, public cond?: any, body?: any) {
 		super(lineno, colno);
 		this.cond = cond;
 		this.body = body;
@@ -347,24 +335,16 @@ export class Case extends Node {
 }
 
 export class Output extends Node {
-	// parent?:
 	get typename() {
 		return 'Output' as NodeTypeKey;
 	}
-	constructor(lineno: number, colno: number, args: Node[]) {
+	constructor(lineno: number, colno: number, args?: Node[]) {
 		super(lineno, colno);
 		this.children = args;
-		// this.parent();
-		// this.extname = ext.__name || ext;
-		// this.prop = prop;
-		// this.args = args || new NodeList();
-		// this.contentArgs = contentArgs;
-		// this.autoescape = ext.autoescape;
 	}
 }
 
 export class Capture extends Node {
-	body: NodeList;
 	constructor(lineno: number, colno: number, body?: NodeList) {
 		super(lineno, colno);
 		this.body = body;
@@ -376,8 +356,7 @@ export class Capture extends Node {
 }
 
 export class UnaryOp extends Node {
-	target: any;
-	constructor(lineno: number, colno: number, target?: any) {
+	constructor(lineno: number, colno: number, public target?: any) {
 		super(lineno, colno);
 		this.target = target;
 	}
@@ -388,9 +367,12 @@ export class UnaryOp extends Node {
 }
 
 export class BinOp extends Node {
-	left: any;
-	right: any;
-	constructor(lineno: number, colno: number, left?: any, right?: any) {
+	constructor(
+		lineno: number,
+		colno: number,
+		public left?: any,
+		public right?: any
+	) {
 		super(lineno, colno);
 		this.right = right;
 	}
@@ -401,9 +383,12 @@ export class BinOp extends Node {
 }
 
 export class Compare extends Node {
-	expr: any;
-	ops: any[];
-	constructor(lineno: number, colno: number, expr?: any, ops?: any[]) {
+	constructor(
+		lineno: number,
+		colno: number,
+		public expr?: any,
+		public ops: any[] = []
+	) {
 		super(lineno, colno);
 		this.expr = expr;
 		this.ops = ops;
@@ -415,9 +400,12 @@ export class Compare extends Node {
 }
 
 export class CompareOperand extends Node {
-	expr: any;
-	type: any;
-	constructor(lineno: number, colno: number, expr?: any, type?: any) {
+	constructor(
+		lineno: number,
+		colno: number,
+		public expr?: any,
+		public type?: any
+	) {
 		super(lineno, colno);
 		this.expr = expr;
 		this.type = type;
@@ -429,10 +417,7 @@ export class CompareOperand extends Node {
 }
 
 export class CallExtension extends Node {
-	extname: string | object;
-	prop: any;
-	args: NodeList;
-	contentArgs: any[] = [];
+	extname: string;
 	autoescape: any;
 	static readonly fields = ['extname', 'prop', 'args', 'contentArgs'] as const;
 	get typename() {
@@ -441,95 +426,29 @@ export class CallExtension extends Node {
 	constructor(
 		lineno: number,
 		colno: number,
-		ext: { __name: string; autoescape: any },
-		prop: any,
-		args: NodeList,
-		contentArgs = []
+		public ext?: { __name: string; autoescape: any } | string,
+		public prop?: any,
+		public args?: NodeList,
+		public contentArgs = []
 	) {
 		super(lineno, colno);
 		// this.parent();
-		this.extname = ext.__name || ext;
+		this.extname = typeof ext === 'string' ? ext : ext.__name || '';
 		this.prop = prop;
 		this.args = args || new NodeList();
 		this.contentArgs = contentArgs;
-		this.autoescape = ext.autoescape;
+		this.autoescape = !(typeof ext === 'string') && ext.autoescape;
 	}
 }
-
-// export class Node extends Obj {
-// 	children: Node[] = [];
-// 	extname: string = '';
-// 	lineno: number = 0;
-// 	colno: number = 0;
-// 	name: any = '';
-// 	fields: string[] = [];
-// 	autoescape: boolean = true;
-// 	value: any = null;
-// 	key: any = null;
-// 	// Unsure types
-// 	cond: any = '';
-// 	arr: any[] = [];
-// 	body: any;
-// 	else_: any;
-// 	__typename: NodeTypeKey = 'Node';
-// 	contentArgs: any;
-// 	args: any;
-// 	target: any;
-// 	prop: any;
-
-// 	constructor(...args: any[]) {
-// 		super(...args);
-// 	}
-
-// 	get typename() {
-// 		return this.__typename;
-// 	}
-
-// 	init(this: any, lineno: number, colno: number, ...args: any[]) {
-// 		this.lineno = lineno;
-// 		this.colno = colno;
-
-// 		this.fields?.forEach((field: string, i: number) => {
-// 			// The first two args are line/col numbers, so offset by 2
-// 			var val = arguments[i + 2];
-
-// 			// Fields should never be undefined, but null. It makes
-// 			// testing easier to normalize values.
-// 			if (val === undefined) {
-// 				val = null;
-// 			}
-
-// 			this[field] = val;
-// 		});
-// 	}
-
-// 	findAll(this: any, type: string, results: any[] = []) {
-// 		if (this instanceof NodeList) {
-// 			this.children.forEach((child) => traverseAndCheck(child, type, results));
-// 		} else {
-// 			this.fields.forEach((field: any) =>
-// 				traverseAndCheck(this[field], type, results)
-// 			);
-// 		}
-
-// 		return results;
-// 	}
-
-// 	iterFields(this: any, func: Function) {
-// 		this.fields.forEach((field: any) => {
-// 			func(this[field], field);
-// 		});
-// 	}
-// }
 
 export class Value extends Node {
 	static readonly fields = ['value'] as const;
 	get typename() {
 		return 'Value' as NodeTypeKey;
 	}
-	constructor(lineno: number, colno: number, val: string | number) {
+	constructor(lineno: number, colno: number, public value?: any) {
 		super(lineno, colno);
-		this.value = val;
+		this.value = value;
 	}
 }
 
@@ -555,7 +474,7 @@ export class NodeList extends Node {
 	}
 
 	addChild(node: Node) {
-		this.children.push(node);
+		this.children?.push(node);
 	}
 }
 
@@ -611,8 +530,25 @@ export class Filter extends Macro {
 	}
 }
 
-export class FilterAsync extends Macro {
-	static readonly fields = ['name', 'args', 'symbol'] as const;
+// @ts-ignore
+export class FilterAsync extends Filter {
+	static override readonly fields: readonly string[] = [
+		'name',
+		'args',
+		'symbol',
+	];
+	constructor(
+		lineno: number,
+		colno: number,
+		public name?: Symbol,
+		public args?: any,
+		public symbol?: Symbol
+	) {
+		super(lineno, colno, name, args);
+		this.name = name;
+		this.args = args;
+		this.symbol = symbol;
+	}
 	get typename() {
 		return 'FilterAsync' as NodeTypeKey;
 	}
@@ -723,6 +659,7 @@ export class Pos extends UnaryOp {
 }
 
 export class CallExtensionAsync extends CallExtension {
+	name: any; // todo remove this
 	get typename() {
 		return 'CallExtensionAsync' as NodeTypeKey;
 	}
@@ -735,14 +672,14 @@ function print(str: string, indent: number = 0, inline: boolean = false) {
 		if (line && ((inline && i > 0) || !inline)) {
 			process.stdout.write(' '.repeat(indent));
 		}
-		const nl = i === lines.length - 1 ? '' : '\n';
+		const nl = i === lines?.length - 1 ? '' : '\n';
 		process.stdout.write(`${line}${nl}`);
 	});
 }
 
 // Print the AST in a nicely formatted tree format for debuggin
-function printNodes(node: any, indent: number = 0) {
-	print(node.typename + ': ', indent);
+export function printNodes(node: any, indent: number = 0) {
+	p.log(node?.typename + ': ', indent);
 
 	if (node instanceof NodeList) {
 		print('\n');
@@ -767,7 +704,7 @@ function printNodes(node: any, indent: number = 0) {
 
 		node.iterFields((val: any, fieldName: string) => {
 			if (val instanceof Node) {
-				nodes.push([fieldName, val]);
+				nodes?.push([fieldName, val]);
 			} else {
 				props = props || {};
 				props[fieldName] = val;
@@ -824,7 +761,6 @@ const NodeTypes = {
 	Mod,
 	Mul,
 	Neg,
-	Node,
 	NodeList,
 	Not,
 	Or,
@@ -844,17 +780,122 @@ const NodeTypes = {
 	Value,
 } as const;
 
-export type INodeTypes = typeof NodeTypes;
 export type NodeTypeKey = keyof typeof NodeTypes;
 export type NodeTypeValue = (typeof NodeTypes)[NodeTypeKey];
-export type NodeCtor<K extends NodeTypeKey> = (typeof NodeTypes)[K];
-
 export const NodeCreator = (key: NodeTypeKey) => {
-	if (NodeTypes[key]) return NodeTypes[key];
-	throw 'No node type found: ' + key;
-};
+	switch (key) {
+		case 'Add':
+			return Add;
+		case 'And':
+			return And;
+		case 'Array':
+			return ArrayNode;
+		case 'AsyncEach':
+			return AsyncEach;
+		case 'AsyncAll':
+			return AsyncAll;
+		case 'BinOp':
+			return BinOp;
+		case 'Block':
+			return Block;
+		case 'Caller':
+			return Caller;
+		case 'CallExtension':
+			return CallExtension;
+		case 'CallExtensionAsync':
+			return CallExtensionAsync;
+		case 'Capture':
+			return Capture;
+		case 'Case':
+			return Case;
+		case 'Compare':
+			return Compare;
+		case 'CompareOperand':
+			return CompareOperand;
+		case 'Concat':
+			return Concat;
+		case 'Dict':
+			return Dict;
+		case 'Div':
+			return Div;
+		case 'Extends':
+			return Extends;
+		case 'Filter':
+			return Filter;
+		case 'FilterAsync':
+			return FilterAsync;
+		case 'FloorDiv':
+			return FloorDiv;
+		case 'For':
+			return For;
+		case 'FromImport':
+			return FromImport;
+		case 'FunCall':
+			return FunCall;
+		case 'Group':
+			return Group;
+		case 'If':
+			return If;
+		case 'IfAsync':
+			return IfAsync;
+		case 'Import':
+			return Import;
+		case 'In':
+			return In;
+		case 'Include':
+			return Include;
+		case 'InlineIf':
+			return InlineIf;
+		case 'Is':
+			return Is;
+		case 'KeywordArgs':
+			return KeywordArgs;
+		case 'Literal':
+			return Literal;
+		case 'LookupVal':
+			return LookupVal;
+		case 'Macro':
+			return Macro;
+		case 'Mod':
+			return Mod;
+		case 'Mul':
+			return Mul;
+		case 'Neg':
+			return Neg;
+		case 'NodeList':
+			return NodeList;
+		case 'Not':
+			return Not;
+		case 'Or':
+			return Or;
+		case 'Output':
+			return Output;
+		case 'Pair':
+			return Pair;
+		case 'Pos':
+			return Pos;
+		case 'Pow':
+			return Pow;
+		case 'Root':
+			return Root;
+		case 'Set':
+			return Set;
+		case 'Slice':
+			return Slice;
+		case 'Sub':
+			return Sub;
+		case 'Super':
+			return Super;
+		case 'Switch':
+			return Switch;
+		case 'Symbol':
+			return Symbol;
+		case 'TemplateData':
+			return TemplateData;
+		case 'Value':
+			return Value;
 
-export default {
-	...NodeTypes,
-	printNodes,
+		default:
+			throw new Error(`No node type found: ${key}`);
+	}
 };
