@@ -3,7 +3,7 @@ import {
 	precompileGlobal,
 	globals,
 	installCompat,
-} from '../nunjucks-ts/src/globals';
+} from '../nunjucks/src/globals';
 
 describe('globals()', () => {
 	it('returns a fresh object each call (no shared state)', () => {

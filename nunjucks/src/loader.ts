@@ -2,6 +2,7 @@
 import path from 'path';
 import fs from 'node:fs';
 import EventEmitter from 'events';
+import { p } from './lib';
 interface ILoader {
 	watch: boolean;
 	noCache: boolean;
@@ -35,7 +36,7 @@ export class Loader extends EventEmitter implements ILoader {
 	}
 
 	get typename() {
-		return this.constructor.name;
+		return 'Loader';
 	}
 }
 
@@ -44,6 +45,9 @@ export class PrecompiledLoader extends Loader {
 	constructor(compiledTemplates: any) {
 		super();
 		this.precompiled = compiledTemplates || {};
+	}
+	get typename() {
+		return 'PrecompiledLoader'
 	}
 
 	getSource(name: string): null | {
@@ -80,6 +84,9 @@ export class WebLoader extends Loader implements IWebLoader {
 		opts = opts || {};
 		this.useCache = !!opts.useCache; // We default cache to false
 		this.async = !!opts.async; // We default `async` to false
+	}
+	get typename() {
+		return 'WebLoader'
 	}
 
 	resolve(_: string, _t: string) {
@@ -164,6 +171,9 @@ export class FileSystemLoader extends Loader {
 			Array.isArray(searchPaths) ? searchPaths : [searchPaths]
 		).map(path.normalize);
 	}
+	get typename() {
+		return 'FileSystemLoader'
+	}
 
 	getSource(name: string) {
 		let fullpath = null;
@@ -182,7 +192,7 @@ export class FileSystemLoader extends Loader {
 		}
 
 		this.pathsToNames[fullpath] = name;
-
+		p.warn('Try to load file: ', this.pathsToNames, '\nFullpath: ' ,fullpath)
 		const source = {
 			src: fs.readFileSync(fullpath, 'utf-8'),
 			path: fullpath,
@@ -198,5 +208,8 @@ export class MemoryLoader {
 	getSource(name: string) {
 		if (!(name in this.templates)) return null;
 		return { src: this.templates[name], path: name, noCache: true };
+	}
+	get typename() {
+		return 'MemoryLoader'
 	}
 }

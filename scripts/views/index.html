@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block body %}
+
+{% extends "otherfile.html" %}
+Hello {{ name | upper }}
+
+
+<div>
+
+
+{% endblock %}
+
+{% block carrots %}
+{% if name %}
+  <p> Hello {{ name }} </p>
+{% else %}
+  <p> No name provided </p>
+{% endif %}
+Memo
+</div>
+
+{% endblock %}

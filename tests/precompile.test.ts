@@ -1,6 +1,6 @@
 // test/precompile.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { precompile } from '../nunjucks-ts/src/precompile';
+import { precompile } from '../nunjucks/src/precompile';
 /**
  * IMPORTANT:
  * - Adjust import paths (`../src/...`) to match your repo.
@@ -71,7 +71,7 @@ vi.mock('fs', () => {
 });
 
 const compileMock = vi.fn();
-vi.mock('../nunjucks-ts/src/compiler', () => {
+vi.mock('../nunjucks/src/compiler', () => {
 	return { compile: (...args: any[]) => compileMock(...args) };
 });
 
@@ -84,7 +84,7 @@ const templateErrorMock = vi.fn((e: any) => {
 	// Make sure errors have `.message`
 	return e instanceof Error ? e : new Error(String(e));
 });
-vi.mock('../nunjucks-ts/src/lib', () => {
+vi.mock('../nunjucks/src/lib', () => {
 	return {
 		_prettifyError: (...args: any[]) => prettifyMock(...args),
 		TemplateError: (...args: any[]) => templateErrorMock(...args),
@@ -105,7 +105,7 @@ const wrapperMock = vi.fn((templates: any[], opts?: any) => ({
 	templates,
 	opts,
 }));
-vi.mock('../nunjucks-ts/src/globals', () => {
+vi.mock('../nunjucks/src/globals', () => {
 	return { precompileGlobal: (...args: any[]) => wrapperMock(...args) };
 });
 

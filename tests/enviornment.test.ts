@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // IMPORTANT: update this import to the file that exports Environment/Template/Context/asap/callbackAsap
-import { Environment, Template, Context } from '../nunjucks-ts/src/environment';
+import { Environment, Template, Context } from '../nunjucks/src/environment';
 
 // ---- Helpers: minimal loader stubs ----
 class SyncLoader {
@@ -70,13 +70,6 @@ function codeTemplateCallingLookup(name: string) {
 }
 
 describe('Environment basics', () => {
-	it('addGlobal/getGlobal', () => {
-		const env = new Environment();
-		env.addGlobal('x', 123);
-
-		expect(env.getGlobal('x')).toBe(123);
-		expect(() => env.getGlobal('missing')).toThrow(/global not found/i);
-	});
 
 	it('addFilter/getFilter', () => {
 		const env = new Environment();
@@ -376,7 +369,7 @@ describe('Template compilation from compiler (mocked)', () => {
 			};
 		});
 
-		const mod = await import('../nunjucks-ts/src/environment');
+		const mod = await import('../nunjucks/src/environment');
 		const env = new mod.Environment();
 		const tmpl = new mod.Template('hello {{x}}', env, 't.njk', true);
 

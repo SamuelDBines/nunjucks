@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 
 // Adjust these import paths to match your repo
-import { transform } from '../nunjucks-ts/src/transformer';
+import { transform } from '../nunjucks/src/transformer';
 
 import {
 	Add,
@@ -62,7 +62,7 @@ import {
 	TemplateRef,
 	UnaryOp,
 	Value,
-} from '../nunjucks-ts/src/nodes';
+} from '../nunjucks/src/nodes';
 
 function asNodeList(n: any) {
 	expect(n).toBeInstanceOf(NodeList);

@@ -96,6 +96,14 @@ function walk(ast: Node, func: Walker, depthFirst: boolean = false): Node {
 	return depthFirst ? (func(node) as Node) || node : node;
 }
 
+export function collectBlocks(root: Node): Block[] {
+  const blocks: Block[] = [];
+  walk(root, (n) => {
+    if (n instanceof Block) blocks.push(n);
+  });
+  return blocks;
+}
+
 function liftFilters(ast: Node, asyncFilters: readonly string[] = []) {
 	function _liftFilters(
 		node: Node,

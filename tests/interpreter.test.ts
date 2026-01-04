@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { renderAST } from '../nunjucks-ts/src/interpreter';
-import * as Runtime from '../nunjucks-ts/src/runtime';
-import { Environment, Context } from '../nunjucks-ts/src/environment';
-import { MemoryLoader } from '../nunjucks-ts/src/loader';
+import { renderAST } from '../nunjucks/src/interpreter';
+import * as Runtime from '../nunjucks/src/runtime';
+import { Environment, Context } from '../nunjucks/src/environment';
+import { MemoryLoader } from '../nunjucks/src/loader';
 import {
 	Root,
 	Output,
@@ -10,10 +10,10 @@ import {
 	Symbol,
 	Literal,
 	Add,
-} from '../nunjucks-ts/src/nodes';
+} from '../nunjucks/src/nodes';
 
-import { parse } from '../nunjucks-ts/src/parser'; // whatever your parse entry is
-import { transform } from '../nunjucks-ts/src/transformer';
+import { parse } from '../nunjucks/src/parser'; // whatever your parse entry is
+import { transform } from '../nunjucks/src/transformer';
 
 function makeEnv() {
 	const env = new Environment({

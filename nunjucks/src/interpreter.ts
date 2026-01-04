@@ -58,8 +58,10 @@ import {
 	UnaryOp,
 	Value,
 } from './nodes';
+import { collectBlocks, transform } from './transformer'
 import { Frame } from './runtime';
 import * as Runtime from './runtime';
+import { parse } from './parser';
 type RenderResult = string;
 
 async function evalBinOp<T extends BinOp>(
@@ -70,6 +72,86 @@ async function evalBinOp<T extends BinOp>(
 	const left = await evalExpr(node.left, st);
 	const right = await evalExpr(node.right, st);
 	return fn(left, right);
+}
+
+function makeBlockFn(block: Block, env: Environment, runtime: typeof Runtime) {
+  return async (context: Context, frame: Frame) => {
+    const st: EvalState = { env, context, frame: frame.push(true), runtime, buffer: [] };
+    await evalNode(block.body, st); 
+    return st.buffer.join('');
+  };
+}
+
+async function registerBlocksFromAst(root: Root, st: EvalState) {
+  const blocks = collectBlocks(root);
+  for (const b of blocks) {
+    const name = b.name.value; // Block.name is Symbol in your AST
+    st.context.addBlock(name, makeBlockFn(b, st.env, st.runtime));
+  }
+}
+
+async function evalExtends(node: Extends, st: EvalState) {
+  const parentStr = String(await evalExpr(node.template, st)); 
+
+	await registerBlocksFromAst(st.rootAst, st);
+
+	const info = await new Promise<any>((resolve, reject) => {
+    st.env.getTemplateInfo(parentStr, { parentName: null }, (err: any, out: any) =>
+      err ? reject(err) : resolve(out)
+    );
+  });
+
+  const parentAst: any = transform(parse(info.src, [], st.env), []);
+
+  // const parentTpl = await st.env.getTemplate(parentStr,undefined, {eagerCompile:true});
+	// p.err('Parent string is: ',parentStr,  parentTpl.ast, parentTpl.root)
+  // const parentAst: Root = parentTpl.ast ?? parentTpl.root; 
+  // if (!parentAst) {
+  //   throw st.runtime.handleError(
+  //     new Error(`Parent template "${parentStr}" has no AST loaded`),
+  //     node.lineno,
+  //     node.colno
+  //   );
+  // }
+
+  // const rendered = await new Promise<string>((resolve, reject) => {
+  //   parentTpl.render(st.context.getVariables?.() ?? st.context, (err: any, res: string) =>
+  //     err ? reject(err) : resolve(res)
+  //   );
+  // });
+	const parentState: EvalState = {
+    ...st,
+    rootAst: parentAst,
+    buffer: [],
+    didExtend: false,
+  };
+
+  await evalNode(parentAst, parentState);
+  write(st, parentState.buffer.join(""));
+
+  // write(st, rendered);
+
+  st.didExtend = true;
+}
+
+async function evalNodeListStmt(node: NodeList, st: EvalState) {
+	for (const child of node.children) {
+		await evalNode(child, st);
+		if (st.didExtend) return;
+	}
+}
+
+async function evalRoot(node: Root, st: EvalState) {
+  await registerBlocksFromAst(node, st);
+	await evalNodeListStmt(node as any as NodeList, st);
+}
+
+async function evalBlock(node: Block, st: EvalState) {
+  const name = node.name.value;
+  const fn = st.context.getBlock(name); // whatever your API is
+  if (!fn) return;
+  const rendered = await fn(st.context, st.frame);
+  write(st, rendered);
 }
 
 async function evalBinOpHp(node: BinOp, st: EvalState, op: string) {
@@ -234,12 +316,7 @@ async function evalSet(node: Set, st: EvalState) {
 	}
 }
 
-async function evalNodeListStmt(node: NodeList, st: EvalState) {
-	for (const child of node.children) await evalNode(child, st);
-}
-async function evalRoot(node: Root, st: EvalState) {
-	await evalNodeListStmt(node as any as NodeList, st);
-}
+
 
 async function evalFor(node: For, st: EvalState) {
 	const frame = st.frame.push();
@@ -457,6 +534,8 @@ interface EvalState {
 	frame: Frame;
 	runtime: typeof Runtime;
 	buffer: string[];
+	rootAst?: Root;
+	didExtend?: boolean;
 }
 async function evalNode(node: Node, st: EvalState): Promise<void> {
 	switch (node.typename) {
@@ -472,11 +551,21 @@ async function evalNode(node: Node, st: EvalState): Promise<void> {
 			return evalFor(node as For, st);
 		case 'Set':
 			return evalSet(node as Set, st);
+		case 'Extends':
+  		return evalExtends(node as Extends, st);
 		case 'Root':
 			return evalRoot(node as any as Root, st);
+		case 'Block':
+  		return evalBlock(node as Block, st);
 		default:
-			throw st.runtime.handleError('Unknown evaluation');
+			throw st.runtime.handleError('Unknown evaluation: ' +  node.typename);
 	}
+}
+
+export async function renderRootToString(ast: Root, st: EvalState): Promise<string> {
+  const inner: EvalState = { ...st, frame: st.frame, buffer: [] };
+  await evalNode(ast, inner);
+  return inner.buffer.join('');
 }
 
 export async function renderAST(
@@ -489,8 +578,8 @@ export async function renderAST(
 	const context = new Context(ctx || {}, /*blocks*/ {}, env);
 	const frame = new Frame();
 	frame.topLevel = true;
-	p.warn(context, 'is');
-	const st: EvalState = { env, context, frame, runtime, buffer: [] };
+
+	const st: EvalState = { env, context, frame, runtime, buffer: [],rootAst: ast  };
 	await evalNode(ast, st);
 	return st.buffer.join('');
 }

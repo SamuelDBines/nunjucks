@@ -15,13 +15,13 @@
     "declaration": true,
     "resolveJsonModule": true,
     "outDir": "./dist",
-    "baseUrl": "./nunjucks-ts",
+    "baseUrl": "nunjucks",
     "types": [
       "node"
     ]
   },
   "include": [
-    "nunjucks-ts"
+    "nunjucks"
   ],
   "exclude": [
     "node_modules",

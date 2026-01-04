@@ -12,7 +12,7 @@ import * as compiler from './compiler';
 import * as filters from './filters';
 import { Loader, FileSystemLoader, PrecompiledLoader } from './loader';
 
-import { globals } from './globals';
+import { globals, IGlobals } from './globals';
 import { Frame } from './runtime';
 import { Callback } from './types';
 import { express as expressApp } from './express-app';
@@ -39,6 +39,8 @@ type getTemplateOps = {
 	ignoreMissing?: boolean;
 };
 
+type TemplateInfo = { src: string; path: string; noCache?: boolean; loader: any };
+
 // const rootHelper: RootRenderFunctionProps = (cb) => (env, context, frame, runtime, cb) => {
 // 	try {
 // 		cb(null, 'hello');
@@ -62,6 +64,7 @@ const noopTmplSrc: ITemplateSrc = {
 };
 
 interface IEnvironmentOpts {
+	path?: string;
 	throwOnUndefined?: boolean;
 	autoescape?: boolean;
 	trimBlocks?: boolean;
@@ -71,6 +74,9 @@ interface IEnvironmentOpts {
 }
 
 export class Environment extends EventEmitter {
+	//State
+	ctx?: Context;
+	globals?: IGlobals;
 	throwOnUndefined: boolean = false;
 	trimBlocks: boolean = false;
 	lstripBlocks: boolean = false;
@@ -78,23 +84,25 @@ export class Environment extends EventEmitter {
 	autoescape: boolean = true;
 	loaders: Loader[] = [new FileSystemLoader(['views'])];
 	asyncFilters: string[] = [];
-	ctx?: Context;
+	path: string;
+
 
 	// TODO: figure out types here
 
 	extensionsList: any[] = [];
 	extensions: Record<string, any> = {};
-	filters: Record<string, any> = {};
+	filters: Record<string, any> = {}; //typeof filters to set later
 	cache: Record<string, any> = {};
-	globals: any;
+
 	constructor(opts?: IEnvironmentOpts) {
 		super();
+		this.path = opts?.path || 'views'
 		this.dev = opts?.dev || true;
 		this.throwOnUndefined = opts?.throwOnUndefined || false;
 		this.trimBlocks = opts?.trimBlocks || false;
 		this.lstripBlocks = opts?.lstripBlocks || false;
 		this.autoescape = opts?.autoescape || true;
-		this.loaders = opts?.loaders || [new FileSystemLoader(['views'])];
+		this.loaders = opts?.loaders || [new FileSystemLoader([this.path])];
 
 		if (typeof window !== 'undefined' && window.nunjucksPrecompiled) {
 			this.loaders.unshift(new PrecompiledLoader(window.nunjucksPrecompiled));
@@ -103,7 +111,6 @@ export class Environment extends EventEmitter {
 		this._initLoaders();
 
 		this.globals = globals();
-		this.filters = {};
 		// TODO: Running on init before initialized? Surely not used
 		Object.entries(filters).forEach(([name, filter]) =>
 			this.addFilter(name, filter)
@@ -158,17 +165,16 @@ export class Environment extends EventEmitter {
 	}
 
 	addFilter(name: string, func: Function, async?: any[]) {
-		var wrapped = func;
-
 		if (async) {
 			this.asyncFilters?.push(name);
 		}
-		this.filters[name] = wrapped;
+		this.filters[name] = func;
 		return this;
 	}
 
 	getFilter(name: string) {
 		if (!this.filters[name]) {
+			p.err('filter not found: ' + name)
 			throw new Error('filter not found: ' + name);
 		}
 		return this.filters[name];
@@ -177,9 +183,49 @@ export class Environment extends EventEmitter {
 	resolveTemplate(loader: Loader, parentName: string, filename: string) {
 		let isRelative =
 			loader.isRelative && parentName ? loader.isRelative(filename) : false;
+		p.warn('Is relative: ', isRelative, parentName, loader, '\n',loader.typename)
 		return isRelative && loader.resolve
 			? loader.resolve(parentName, filename)
 			: filename;
+	}
+
+	getTemplateInfo(
+		name: string,
+		opts?: getTemplateOps,
+		cb?: (err: any, info?: TemplateInfo | null) => void
+	):  TemplateInfo | undefined  {
+		const parentName = opts?.parentName || null;
+		const ignoreMissing = opts?.ignoreMissing || false;
+		const that = this;
+		let syncResult: TemplateInfo | undefined;
+		const done = (err: any, info?: any) => {
+			if (!info && !err && !ignoreMissing) err = new Error("template not found: " + name);
+			if (err) {
+				if (cb) return cb(err);
+				throw err;
+			}
+			const out: TemplateInfo = { src: info.src, path: info.path || "", noCache: info.noCache, loader: info.loader };
+			if (cb) cb(null, out);
+			else syncResult = out;
+		};
+
+		asyncIter(
+			this.loaders,
+			(loader, _i, next, finish) => {
+				function handle(err: any, src: any) {
+					if (err) finish(err);
+					else if (src) {
+						src.loader = loader;
+						finish(null, src);
+					} else next();
+				}
+				const resolved = that.resolveTemplate(loader, parentName, name);
+				if (loader.async) loader.getSource(resolved, handle);
+				else handle(null, loader.getSource(resolved));
+			},
+			done
+		);
+		return syncResult;
 	}
 
 	getTemplate(name: any, cb?: Callback, opts?: getTemplateOps) {
@@ -187,6 +233,7 @@ export class Environment extends EventEmitter {
 		let that = this;
 		let tmpl = null;
 		const parentName = opts?.parentName || null;
+		p.err('Parent name is: ', parentName, name)
 		const eagerCompile = opts?.eagerCompile || false;
 		const ignoreMissing = opts?.ignoreMissing || false;
 		if (name && name.raw) {
@@ -196,6 +243,7 @@ export class Environment extends EventEmitter {
 		if (name instanceof Template) {
 			tmpl = name;
 		} else if (!isString(name)) {
+			p.err('template names must be a string: ' + name)
 			throw new Error('template names must be a string: ' + name);
 		} else {
 			for (let i = 0; i < this.loaders?.length; i++) {
@@ -219,8 +267,7 @@ export class Environment extends EventEmitter {
 			return tmpl;
 		}
 		let syncResult;
-
-		const createTemplate = (err, info) => {
+		const createTemplate = (err: any, info) => {
 			if (!info && !err && !ignoreMissing) {
 				err = new Error('template not found: ' + name);
 			}
@@ -252,6 +299,7 @@ export class Environment extends EventEmitter {
 		asyncIter(
 			this.loaders,
 			(loader, _i, next, done) => {
+
 				function handle(err, src) {
 					if (err) {
 						done(err);
@@ -263,7 +311,7 @@ export class Environment extends EventEmitter {
 					}
 				}
 				name = that.resolveTemplate(loader, parentName, name);
-
+				p.log('Name is: ',  name, parentName, loader)
 				if (loader.async) {
 					loader.getSource(name, handle);
 				} else {
@@ -617,7 +665,6 @@ export class Template {
 		let props;
 
 		if (this.tmplProps) {
-			p.log('tmplProps is: ', this.tmplProps);
 			props = this.tmplProps;
 		} else {
 			const source = compiler.compile(
@@ -634,7 +681,6 @@ export class Template {
 		}
 
 		this.blocks = this._getBlocks(props);
-		p.log('Props root render function: ', props, props.root);
 		this.rootRenderFunction = props.root;
 		this.compiled = true;
 	}

@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * IMPORTANT: Update the import paths below if your filters file lives elsewhere.
  */
 
-vi.mock('../nunjucks-ts/src/runtime', () => {
+vi.mock('../nunjucks/src/runtime', () => {
 	return {
 		default: {
 			// keep it simple: "safe" handling just wraps + copySafeness returns output
@@ -19,7 +19,7 @@ vi.mock('../nunjucks-ts/src/runtime', () => {
 	};
 });
 
-vi.mock('../nunjucks-ts/src/lib', () => {
+vi.mock('../nunjucks/src/lib', () => {
 	const TemplateError = (msg: string) => new Error(msg);
 
 	return {
@@ -45,7 +45,7 @@ vi.mock('../nunjucks-ts/src/lib', () => {
 });
 
 async function loadFilters() {
-	return await import('../nunjucks-ts/src/filters');
+	return await import('../nunjucks/src/filters');
 }
 
 describe('filters.ts', () => {

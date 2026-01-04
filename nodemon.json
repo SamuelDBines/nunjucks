@@ -1,7 +1,7 @@
 {
   "watch": [
     "samples/express",
-    "nunjucks-ts"
+    "nunjucks"
   ],
   "ext": "js,ts,html",
   "ignore": [

@@ -1,7 +1,18 @@
 import { Slice } from './nodes';
 import { Frame } from './runtime';
 
-export function globals() {
+
+export interface IGlobals {
+	range(start: number, stop: number, step?: number): any[];
+	cycler(...items: any[]): {
+			readonly current: any;
+			reset(): void;
+			next(): any;
+	};
+	joiner(sep?: string): () => string;
+}
+
+export function globals(): IGlobals {
 	return {
 		range(start: number, stop: number, step: number = 1) {
 			if (typeof stop === 'undefined') {

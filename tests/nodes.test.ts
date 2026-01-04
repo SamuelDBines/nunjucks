@@ -18,7 +18,7 @@ import {
 	Dict,
 	Output,
 	NodeCreator,
-} from '../nunjucks-ts/src/nodes';
+} from '../nunjucks/src/nodes';
 
 describe('nodes: base Node init + fields normalization', () => {
 	it('Node.init assigns lineno/colno and maps fields from args (undefined -> null)', () => {
