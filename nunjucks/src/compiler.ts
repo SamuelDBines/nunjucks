@@ -1,3 +1,4 @@
+//TODO: Sun 4th Jan 2026 [Update the compiler where I can]
 import { parse } from './parser';
 import { transform } from './transformer';
 import {
@@ -168,7 +169,7 @@ class Compiler {
 				'} catch (e) {',
 				'  cb(runtime.handleError(e, lineno, colno));',
 				'}',
-				'}',
+			'}',
 			],
 			true
 		);
