@@ -12,3 +12,4 @@ docs/files
 /samples/express/js/nunjucks.js
 /samples/express/js/templates.js
 /dist/
+*.tgz
