@@ -1,6 +1,6 @@
 import path from 'path';
 import { describe, it, expect, vi } from 'vitest';
-import { express } from '../nunjucks/src/express-app';
+import { express } from '../src/express-app';
 
 describe('express-app.ts (express integration)', () => {
 	it('registers the view class and env on the app via app.set', () => {

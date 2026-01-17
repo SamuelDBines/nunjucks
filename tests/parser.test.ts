@@ -2,9 +2,9 @@
 import { describe, it, expect } from 'vitest';
 
 // IMPORTANT: update these imports to your project structure
-import { Parser, parse } from '../nunjucks/src/parser';
+import { Parser, parse } from '../src/parser';
 
-import * as lexer from '../nunjucks/src/lexer';
+import * as lexer from '../src/lexer';
 import {
 	Add,
 	And,
@@ -62,7 +62,7 @@ import {
 	TemplateRef,
 	UnaryOp,
 	Value,
-} from '../nunjucks/src/nodes';
+} from '../src/nodes';
 
 function parseRoot(src: string, opts: any = {}, extensions?: any[]) {
 	return parse(src, extensions, opts) as any;

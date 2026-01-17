@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // IMPORTANT: update this import to the file that exports Environment/Template/Context/asap/callbackAsap
-import { Environment, Template, Context } from '../nunjucks/src/environment';
+import { Environment, Template, Context } from '../src/environment';
 
 // ---- Helpers: minimal loader stubs ----
 class SyncLoader {
@@ -369,7 +369,7 @@ describe('Template compilation from compiler (mocked)', () => {
 			};
 		});
 
-		const mod = await import('../nunjucks/src/environment');
+		const mod = await import('../src/environment');
 		const env = new mod.Environment();
 		const tmpl = new mod.Template('hello {{x}}', env, 't.njk', true);
 

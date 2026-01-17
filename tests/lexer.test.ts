@@ -35,7 +35,7 @@ import {
 	VARIABLE_END,
 	COMMENT_START,
 	COMMENT_END,
-} from '../nunjucks/src/lexer';
+} from '../src/lexer';
 
 type Tok = { type: string; value: any; lineno: number; colno: number };
 

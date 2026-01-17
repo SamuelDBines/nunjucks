@@ -10,7 +10,7 @@ import {
 	PrecompiledLoader,
 	WebLoader,
 	FileSystemLoader,
-} from '../nunjucks/src/loader';
+} from '../src/loader';
 
 function mkTmpDir() {
 	return fs.mkdtempSync(path.join(os.tmpdir(), 'njk-loader-'));

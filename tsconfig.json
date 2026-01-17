@@ -21,8 +21,9 @@
     ]
   },
   "include": [
-    "nunjucks"
-, "src"  ],
+    "src",
+    "scripts"
+  ],
   "exclude": [
     "node_modules",
     "dist",

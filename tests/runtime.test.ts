@@ -9,8 +9,8 @@ import {
 	ensureDefined,
 	memberLookup,
 	suppressValue,
-} from '../nunjucks/src/runtime';
-import * as runtime from '../nunjucks/src/runtime';
+} from '../src/runtime';
+import * as runtime from '../src/runtime';
 
 describe('runtime.ts', () => {
 	describe('Frame', () => {

@@ -26,9 +26,10 @@
     "nunjucks-precompile": "./bin/precompile"
   },
   "files": [
-    "bin/**",
-    "browser/**",
-    "src/**"
+    "dist",
+    "README.md",
+    "LICENSE",
+    "package.json"
   ],
   "nyc": {
     "require": [

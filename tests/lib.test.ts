@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest';
-import { lib } from '../nunjucks/index';
+import { lib } from '../index';
 
 describe('lib()', () => {
 	describe('isFunction/isArray/isString/isObject', () => {
