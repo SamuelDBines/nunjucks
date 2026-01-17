@@ -22,7 +22,7 @@
   },
   "include": [
     "nunjucks"
-  ],
+, "src"  ],
   "exclude": [
     "node_modules",
     "dist",

@@ -1,14 +1,14 @@
 import path from 'node:path';
 import fs from 'node:fs'
-import * as Runtime from '../nunjucks/src/runtime';
-import { Context, Environment } from '../nunjucks/src/environment';
-import { parse } from '../nunjucks/src/parser';
-import { transform } from '../nunjucks/src/transformer';
-import { renderAST } from '../nunjucks/src/interpreter';
-import { p } from '../nunjucks/src/lib';
+import * as Runtime from '../src/runtime';
+import { Context, Environment } from '../src/environment';
+import { parse } from '../src/parser';
+import { transform } from '../src/transformer';
+import { renderAST } from '../src/interpreter';
+import { p } from '../src/lib';
 
-import * as nunjucks from '../nunjucks/index';
-import { FileSystemLoader } from '../nunjucks/src/loader';
+import * as nunjucks from '../src/index';
+import { FileSystemLoader } from '../src/loader';
 const VIEWS = path.resolve(process.cwd(), 'scripts/views');
 
 

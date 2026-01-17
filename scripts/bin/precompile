@@ -1,0 +1,116 @@
+const path = require("node:path"); 
+const precompile = require('../src/precompile').precompile;
+const Environment = require('../src/environment').Environment;
+const lib = require('../src/lib');
+
+var cmdpath = null;
+
+function printHelpAndExit(code = 0, msg) {
+  const help = `
+Usage:
+  precompile [-f|--force] [-a|--filters <filters>] [-n|--name <name>]
+             [-i|--include <regex>]... [-x|--exclude <regex>]...
+             [-w|--wrapper <wrapper>] <path>
+
+Options:
+  -f, --force              Force compilation to continue on error
+  -a, --filters <filters>  Comma-delimited list of async filters
+  -n, --name <name>        Template name when compiling a single file
+  -i, --include <regex>    Include regex (repeatable). Default: \\.html$, \\.jinja$
+  -x, --exclude <regex>    Exclude regex (repeatable)
+  -w, --wrapper <wrapper>  Loads module "nunjucks-<wrapper>" and uses its .wrapper export
+  -h, --help               Show help
+`.trim();
+
+  if (msg) console.error(String(msg));
+  console.error(help);
+  process.exit(code);
+}
+
+function takeValue(argv, i, flag) {
+  const v = argv[i + 1];
+  if (v == null || v.startsWith("-")) {
+    printHelpAndExit(1, `error: ${flag} requires a value`);
+  }
+  return v;
+}
+
+function parseArgs(argv) {
+  const opts = {
+    force: false,
+    filters: "", // comma string
+    name: undefined,
+    wrapper: undefined,
+    include: ["\\.html$", "\\.jinja$"],
+    exclude: [],
+    cmdpath: null,
+  };
+
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+
+    if (a === "-h" || a === "--help" || a === "-?") {
+      printHelpAndExit(0);
+    } else if (a === "-f" || a === "--force") {
+      opts.force = true;
+    } else if (a === "-a" || a === "--filters") {
+      opts.filters = takeValue(argv, i, a);
+      i++;
+    } else if (a === "-n" || a === "--name") {
+      opts.name = takeValue(argv, i, a);
+      i++;
+    } else if (a === "-w" || a === "--wrapper") {
+      opts.wrapper = takeValue(argv, i, a);
+      i++;
+    } else if (a === "-i" || a === "--include") {
+      const v = takeValue(argv, i, a);
+      opts.include.push(v);
+      i++;
+    } else if (a === "-x" || a === "--exclude") {
+      const v = takeValue(argv, i, a);
+      opts.exclude.push(v);
+      i++;
+    } else if (a.startsWith("-")) {
+      printHelpAndExit(1, `error: unknown option ${a}`);
+    } else {
+      if (!opts.cmdpath) opts.cmdpath = a;
+      else printHelpAndExit(1, `error: unexpected extra argument ${a}`);
+    }
+  }
+
+  return opts;
+}
+
+const argv = process.argv.slice(2);
+const opts = parseArgs(argv);
+
+if (!opts.cmdpath) {
+  printHelpAndExit(1, "\nerror: no path given\n");
+}
+
+const env = new Environment([]);
+
+const filterList = String(opts.filters || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+lib.each(filterList, function (name) {
+  env.addFilter(name, function () {}, true);
+});
+
+let wrapperFn = undefined;
+if (opts.wrapper) {
+  wrapperFn = require("nunjucks-" + opts.wrapper).wrapper;
+}
+
+const result = precompile(opts.cmdpath, {
+  env,
+  force: opts.force,
+  name: opts.name,
+  wrapper: wrapperFn,
+  include: [].concat(opts.include),
+  exclude: [].concat(opts.exclude),
+});
+
+console.log(result);

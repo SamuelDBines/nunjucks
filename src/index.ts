@@ -1,17 +1,17 @@
-import { isString, p } from './src/lib';
-import { Environment, Template, Context } from './src/environment';
-import { FileSystemLoader, Loader, MemoryLoader } from './src/loader';
+import { isString, p } from './lib';
+import { Environment, Template, Context } from './environment';
+import { FileSystemLoader, Loader, MemoryLoader } from './loader';
 
-import { Callback } from './src/types';
+import { Callback } from './types';
 
-export * from './src/runtime';
-export * as lib from './src/lib';
-export * as lexer from './src/lexer';
-export * as parser from './src/parser';
-export * as nodes from './src/nodes';
-export * as compiler from './src/compiler';
+export * from './runtime';
+export * as lib from './lib';
+export * as lexer from './lexer';
+export * as parser from './parser';
+export * as nodes from './nodes';
+export * as compiler from './compiler';
 // Maybe should be private?
-export * as transformer from './src/transformer';
+export * as transformer from './transformer';
 
 let e: Environment = new Environment();
 
