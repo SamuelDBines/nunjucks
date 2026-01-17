@@ -18,7 +18,8 @@
     "test:browser": "vitest",
     "demo:build": "pnpm run build && node ./samples/express/main.js",
     "demo:dev": "nodemon",
-    "demo:local": "node ./samples/express/main.js"
+    "demo:local": "node ./samples/express/main.js",
+    "update-package": "pnpm build && pnpm pack && pnpm version patch && pnpm publish --access public"
   },
   "bin": {
     "nunjucks-precompile": "./bin/precompile"
