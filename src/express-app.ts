@@ -11,8 +11,15 @@ interface NunjucksOpts {
 	ext: string;
 }
 
-export function express(env: Environment, app: any) {
-	let ext: string = '.html';
+export function express(env: Environment, app: any, opts: { ext?: string }) {
+	let ext: string = opts?.ext || '.njk';
+
+	// app.set('view engine', ext);
+
+	// app.engine(ext, (filePath, ctx, cb) => {
+	// 	const name = path.relative(app.get('views'), filePath).replace(/\\/g, '/');
+	// 	env.render(name, ctx, cb); // name like "emails/welcome.html"
+	// })
 
 	function NunjucksView(_name: string, opts: NunjucksOpts) {
 		this.name = _name;
@@ -28,6 +35,7 @@ export function express(env: Environment, app: any) {
 			// );
 		}
 	}
+
 
 	NunjucksView.prototype.render = function render(
 		opts: NunjucksOpts,
