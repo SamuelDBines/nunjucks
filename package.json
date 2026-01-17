@@ -4,7 +4,8 @@
   "version": "0.0.4",
   "author": "Samuel Bines <samuelbines@gmail.com>",
   "browser": "./browser/nunjucks.js",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "scripts": {
     "build": "tsc",
     "lint": "eslint --flag unstable_config_lookup_from_file nunjucks scripts tests",
