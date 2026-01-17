@@ -197,7 +197,6 @@ export class Environment extends EventEmitter {
 	):  TemplateInfo | undefined  {
 		const parentName = opts?.parentName || null;
 		const ignoreMissing = opts?.ignoreMissing || false;
-		const that = this;
 		let syncResult: TemplateInfo | undefined;
 		const done = (err: any, info?: any) => {
 			if (!info && !err && !ignoreMissing) err = new Error("template not found: " + name);
@@ -220,7 +219,7 @@ export class Environment extends EventEmitter {
 						finish(null, src);
 					} else next();
 				}
-				const resolved = that.resolveTemplate(loader, parentName, name);
+				const resolved = this.resolveTemplate(loader, parentName, name);
 				if (loader.async) loader.getSource(resolved, handle);
 				else handle(null, loader.getSource(resolved));
 			},
@@ -231,7 +230,6 @@ export class Environment extends EventEmitter {
 
 	getTemplate(name: any, cb?: Callback, opts?: getTemplateOps) {
 		p.log('Getting template');
-		let that = this;
 		let tmpl = null;
 		const parentName = opts?.parentName || null;
 		p.err('Parent name is: ', parentName, name)
@@ -311,7 +309,7 @@ export class Environment extends EventEmitter {
 						next();
 					}
 				}
-				name = that.resolveTemplate(loader, parentName, name);
+				name = this.resolveTemplate(loader, parentName, name);
 				p.log('Name is: ',  name, parentName, loader)
 				if (loader.async) {
 					loader.getSource(name, handle);

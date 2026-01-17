@@ -11,7 +11,7 @@ interface NunjucksOpts {
 	ext: string;
 }
 
-export function express(env: Environment, app: any, opts: { ext?: string }) {
+export function express(env: Environment, app: any, opts?: { ext?: string }) {
 	let ext: string = opts?.ext || '.njk';
 
 	// app.set('view engine', ext);
