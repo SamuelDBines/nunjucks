@@ -1,5 +1,6 @@
 //Done: Sun 4th Jan 2026 
 import { Callback } from './types';
+import { TemplateError } from 'template';
 
 // ---- ESCAPE CHARACTERS ----
 const escapeRegex = /[&"'<>\\]/g;
@@ -13,7 +14,6 @@ export const escapeMap = {
 	'\\': '&#92;',
 };
 
-// type EscapeMap = typeof escapeMap;
 export type EscapeEntity = (typeof escapeMap)[EscapeChar];
 
 const typeOfItems = {
@@ -53,22 +53,6 @@ export const hasOwnProp = (
 	key: string | number
 ) => (key ? key in obj : false);
 
-export function _prettifyError(
-	path: string,
-	withInternals: boolean,
-	err: TemplateErr
-) {
-	if (!err.update) {
-		err = TemplateError(err);
-	}
-	err.update(path);
-	if (!withInternals) {
-		const old = err;
-		err.name = old.name;
-	}
-	return err;
-}
-
 export type TemplateErr = Error & {
 	name: string;
 	lineno: number;
@@ -78,45 +62,6 @@ export type TemplateErr = Error & {
 	update: (path?: string) => TemplateErr;
 };
 
-// Update template errors
-export function TemplateError(
-	message: string | Error,
-	lineno: number = 0,
-	colno: number = 0
-): TemplateErr {
-	const cause = message instanceof Error ? message : undefined;
-	const msg = cause ? `${cause.name}: ${cause.message}` : String(message ?? '');
-	const err = new Error(msg, cause ? { cause } : undefined) as TemplateErr;
-	err.name = 'Template render error';
-	err.lineno = lineno;
-	err.colno = colno;
-	err.firstUpdate = true;
-	console.error('Whats the error?', message, cause);
-
-	if (cause?.stack) {
-		Object.defineProperty(err, 'stack', {
-			configurable: true,
-			get() {
-				return cause.stack;
-			},
-		});
-	}
-	err.update = (path?: string) => {
-		let prefix = `(${path || 'unknown path'})`;
-
-		if (err.firstUpdate) {
-			if (err?.lineno && err?.colno)
-				prefix += ` [Line ${err?.lineno}, Column ${err?.colno}]`;
-			else if (err?.lineno) prefix += ` [Line ${err?.lineno}]`;
-		}
-
-		prefix += '\n  '; // newline + indentation
-		err.message = prefix + (err.message || '');
-		err.firstUpdate = false;
-		return err;
-	};
-	return err;
-}
 
 export const isFunction = (obj: unknown): obj is Function =>
 	typeof obj === typeOfItems.function;
@@ -205,22 +150,6 @@ export function each(obj: any, func: Function, context: any) {
 			func.call(context, obj[i], i, obj);
 		}
 	}
-}
-
-export function asyncIter(arr: any, iter: Function, cb: Function) {
-	let i = -1;
-
-	function next() {
-		i++;
-
-		if (i < arr?.length) {
-			iter(arr[i], i, next, cb);
-		} else {
-			cb();
-		}
-	}
-
-	next();
 }
 
 export function asyncFor(

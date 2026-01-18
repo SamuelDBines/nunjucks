@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest';
 
 // IMPORTANT: adjust import paths to match your repo layout
-import * as compilers from '../src/compiler';
+import * as compilers from '../src/lcompiler.unused';
 
 const compile = (
 	src: string,

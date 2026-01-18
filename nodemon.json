@@ -1,12 +1,12 @@
 {
   "watch": [
     "samples/express",
-    "nunjucks"
+    "src"
   ],
-  "ext": "js,ts,html",
+  "ext": "js,ts,html,njk",
   "ignore": [
     "dist",
     "node_modules"
   ],
-  "exec": "pnpm demo:build "
+  "exec": "pnpm demo:run"
 }

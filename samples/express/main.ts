@@ -1,19 +1,20 @@
-const path = require('path');
-const nunjucks = require('../../dist/index');
-const express = require('express');
+import path from 'path';
+import * as nunjucks from '../../src';
+import express, { request, response, NextFunction } from 'express';
 
 const PORT = 13300;
 
 const app = express();
 
 const viewsDir = path.join(__dirname, 'views');
-app.set('view engine', 'njk');
-app.set('views', viewsDir);
+
 console.warn(viewsDir);
-nunjucks.configure(viewsDir, {
+const nunev = nunjucks.configure(viewsDir, {
 	autoescape: true,
-	express: app,
 });
+
+nunev.express(app)
+
 
 // app
 

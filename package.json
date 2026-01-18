@@ -14,10 +14,12 @@
     "test:runner": "cross-env NODE_ENV=test NODE_PATH=tests/test-node-pkgs scripts/testrunner.js",
     "vitest:browser": "vitest init browser",
     "test": "vitest",
+    "test:ts": "ts-node scripts/test.ts",
     "test:smoke": "npx ts-node scripts/smoke.ts",
     "test:verbose": "vitest --reporter=verbose",
     "test:browser": "vitest",
     "demo:build": "pnpm run build && node ./samples/express/main.js",
+    "demo:run": "ts-node  samples/express/main.ts",
     "demo:dev": "nodemon",
     "demo:local": "node ./samples/express/main.js",
     "update-package": "pnpm build && pnpm pack && pnpm version patch && pnpm publish --access public"
@@ -55,7 +57,11 @@
     "@types/node": "^25.0.3",
     "@vitest/browser-playwright": "^4.0.16",
     "nodemon": "^3.1.11",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
     "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
   }
 }

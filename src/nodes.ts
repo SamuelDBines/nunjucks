@@ -1,5 +1,5 @@
 //Done: Sun 4th Jan 2026 (maybe everything should be async by default)
-import { dump, p } from './lib';
+import { p } from './lib';
 
 function traverseAndCheck(obj: Node, type: NodeTypeValue, results: any[]) {
 	if (obj instanceof type) {
@@ -10,6 +10,7 @@ function traverseAndCheck(obj: Node, type: NodeTypeValue, results: any[]) {
 		obj.findAll(type, results);
 	}
 }
+
 export abstract class Node {
 	children: Node[] = [];
 	body?: Node;
@@ -502,22 +503,22 @@ export class Dict extends NodeList {
 	}
 }
 
-export class IfAsync extends If {
-	get typename() {
-		return 'IfAsync' as NodeTypeKey;
-	}
-}
-export class AsyncEach extends For {
-	get typename() {
-		return 'AsyncEach' as NodeTypeKey;
-	}
-}
+// export class IfAsync extends If {
+// 	get typename() {
+// 		return 'IfAsync' as NodeTypeKey;
+// 	}
+// }
+// export class AsyncEach extends For {
+// 	get typename() {
+// 		return 'AsyncEach' as NodeTypeKey;
+// 	}
+// }
 
-export class AsyncAll extends For {
-	get typename() {
-		return 'AsyncAll' as NodeTypeKey;
-	}
-}
+// export class AsyncAll extends For {
+// 	get typename() {
+// 		return 'AsyncAll' as NodeTypeKey;
+// 	}
+// }
 
 export class Caller extends Macro {
 	get typename() {
@@ -532,28 +533,28 @@ export class Filter extends Macro {
 }
 
 // @ts-ignore
-export class FilterAsync extends Filter {
-	static override readonly fields: readonly string[] = [
-		'name',
-		'args',
-		'symbol',
-	];
-	constructor(
-		lineno: number,
-		colno: number,
-		public name?: Symbol,
-		public args?: any,
-		public symbol?: Symbol
-	) {
-		super(lineno, colno, name, args);
-		this.name = name;
-		this.args = args;
-		this.symbol = symbol;
-	}
-	get typename() {
-		return 'FilterAsync' as NodeTypeKey;
-	}
-}
+// export class FilterAsync extends Filter {
+// 	static override readonly fields: readonly string[] = [
+// 		'name',
+// 		'args',
+// 		'symbol',
+// 	];
+// 	constructor(
+// 		lineno: number,
+// 		colno: number,
+// 		public name?: Symbol,
+// 		public args?: any,
+// 		public symbol?: Symbol
+// 	) {
+// 		super(lineno, colno, name, args);
+// 		this.name = name;
+// 		this.args = args;
+// 		this.symbol = symbol;
+// 	}
+// 	get typename() {
+// 		return 'FilterAsync' as NodeTypeKey;
+// 	}
+// }
 
 export class KeywordArgs extends Dict {
 	constructor(lineno: number = 0, colno: number = 0) {
@@ -659,36 +660,36 @@ export class Pos extends UnaryOp {
 	}
 }
 
-export class CallExtensionAsync extends CallExtension {
-	name: any; // todo remove this
-	get typename() {
-		return 'CallExtensionAsync' as NodeTypeKey;
-	}
-}
+// export class CallExtensionAsync extends CallExtension {
+// 	name: any; // todo remove this
+// 	get typename() {
+// 		return 'CallExtensionAsync' as NodeTypeKey;
+// 	}
+// }
 
-function print(str: string, indent: number = 0, inline: boolean = false) {
-	const lines = str.split('\n');
+// function print(str: string, indent: number = 0, inline: boolean = false) {
+// 	const lines = str.split('\n');
 
-	lines.forEach((line, i) => {
-		if (line && ((inline && i > 0) || !inline)) {
-			process.stdout.write(' '.repeat(indent));
-		}
-		const nl = i === lines?.length - 1 ? '' : '\n';
-		process.stdout.write(`${line}${nl}`);
-	});
-}
+// 	lines.forEach((line, i) => {
+// 		if (line && ((inline && i > 0) || !inline)) {
+// 			process.stdout.write(' '.repeat(indent));
+// 		}
+// 		const nl = i === lines?.length - 1 ? '' : '\n';
+// 		process.stdout.write(`${line}${nl}`);
+// 	});
+// }
 
 // Print the AST in a nicely formatted tree format for debuggin
 export function printNodes(node: any, indent: number = 0) {
 	p.log(node?.typename + ': ', indent);
 
 	if (node instanceof NodeList) {
-		print('\n');
+		// print('\n');
 		node.children.forEach((n) => {
 			printNodes(n, indent + 2);
 		});
 	} else if (node instanceof CallExtension) {
-		print(`${node.extname}.${node.prop}\n`);
+		// print(`${node.extname}.${node.prop}\n`);
 
 		if (node.args) {
 			printNodes(node.args, indent + 2);
@@ -712,10 +713,10 @@ export function printNodes(node: any, indent: number = 0) {
 			}
 		});
 
-		print(props ? dump(props, 2) + '\n' : '\n', 0, true);
+		// print(props ? dump(props, 2) + '\n' : '\n', 0, true);
 
 		nodes.forEach(([fieldName, n]) => {
-			print(`[${fieldName}] =>`, indent + 2);
+			// print(`[${fieldName}] =>`, indent + 2);
 			printNodes(n, indent + 4);
 		});
 	}
@@ -725,13 +726,10 @@ const NodeTypes = {
 	Add,
 	And,
 	Array: ArrayNode,
-	AsyncEach,
-	AsyncAll,
 	BinOp,
 	Block,
 	Caller,
 	CallExtension,
-	CallExtensionAsync,
 	Capture,
 	Case,
 	Compare,
@@ -740,16 +738,13 @@ const NodeTypes = {
 	Dict,
 	Div,
 	Extends,
-
 	Filter,
-	FilterAsync,
 	FloorDiv,
 	For,
 	FromImport,
 	FunCall,
 	Group,
 	If,
-	IfAsync,
 	Import,
 	In,
 	Include,
@@ -774,7 +769,6 @@ const NodeTypes = {
 	Slice,
 	Sub,
 	Super,
-
 	Switch,
 	Symbol,
 	TemplateData,
@@ -791,10 +785,6 @@ export const NodeCreator = (key: NodeTypeKey) => {
 			return And;
 		case 'Array':
 			return ArrayNode;
-		case 'AsyncEach':
-			return AsyncEach;
-		case 'AsyncAll':
-			return AsyncAll;
 		case 'BinOp':
 			return BinOp;
 		case 'Block':
@@ -803,8 +793,6 @@ export const NodeCreator = (key: NodeTypeKey) => {
 			return Caller;
 		case 'CallExtension':
 			return CallExtension;
-		case 'CallExtensionAsync':
-			return CallExtensionAsync;
 		case 'Capture':
 			return Capture;
 		case 'Case':
@@ -823,8 +811,6 @@ export const NodeCreator = (key: NodeTypeKey) => {
 			return Extends;
 		case 'Filter':
 			return Filter;
-		case 'FilterAsync':
-			return FilterAsync;
 		case 'FloorDiv':
 			return FloorDiv;
 		case 'For':
@@ -837,8 +823,6 @@ export const NodeCreator = (key: NodeTypeKey) => {
 			return Group;
 		case 'If':
 			return If;
-		case 'IfAsync':
-			return IfAsync;
 		case 'Import':
 			return Import;
 		case 'In':

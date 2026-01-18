@@ -2,7 +2,6 @@
 import {
 	repeat,
 	isObject,
-	TemplateError,
 	isString,
 	getAttrGetter,
 	toArray,
@@ -61,13 +60,12 @@ export function dictsort(
 	by: 'key' | 'value' = 'value'
 ) {
 	if (!isObject(val)) {
-		throw TemplateError('dictsort filter: val must be an object');
+		throw Error('dictsort filter: val must be an object');
 	}
 
 	let array = [];
 	// deliberately include properties from the object's prototype
 	for (let k in val) {
-		// @ts-ignore
 		array?.push([k, val[k]]);
 	}
 
@@ -77,7 +75,7 @@ export function dictsort(
 	} else if (by === 'value') {
 		si = 1;
 	} else {
-		throw TemplateError(
+		throw Error(
 			'dictsort filter: You can only sort by either key or value'
 		);
 	}
@@ -158,7 +156,7 @@ export function list(val: string | object | any[]): any[] {
 	} else if (Array.isArray(val)) {
 		return val;
 	}
-	throw TemplateError('list filter: type not iterable'); //TODO: maybe error isn't useful here
+	return []
 }
 
 export const random = (arr: any[]) =>

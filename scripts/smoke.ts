@@ -50,7 +50,7 @@ export async function renderView(name: string, ctx: any) {
 async function renderFileDirect(name: string, ctx: any, env: Environment) {
 
   const src = await fs.readFileSync(path.join(VIEWS, name), 'utf8');
-  const ast: any = transform(parse(src, [], env), []);
+  const ast: any = transform(parse(src, [], env));
   return renderAST(env, ast, ctx, Runtime);
 }
 // async function renderString(src: string, ctx: Context, env = makeEnv()) {
@@ -61,7 +61,7 @@ async function renderFileDirect(name: string, ctx: any, env: Environment) {
 async function main() {
 	const env = new Environment(envSetup);
 	const src = 'Hello {{ name }}';
-	const ast: any = transform(parse(src, [], {}), []);
+	const ast: any = transform(parse(src, [], {}));
 	const out = await renderAST(env, ast, { name: 'Sam' }, Runtime);
 	p.log(out);
 	const viewOut = await renderFileDirect('index.html',{ name: 'Sam', title: 'Hello world' }, env)

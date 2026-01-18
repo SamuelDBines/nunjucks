@@ -4,16 +4,11 @@ import {
 	If,
 	For,
 	NodeList,
-	AsyncEach,
-	AsyncAll,
-	IfAsync,
 	Filter,
-	FilterAsync,
 	Block,
 	FunCall,
 	Output,
 	CallExtension,
-	CallExtensionAsync,
 	Super,
 	Symbol,
 	NodeCreator,
@@ -105,14 +100,14 @@ export function collectBlocks(root: Node): Block[] {
   return blocks;
 }
 
-function liftFilters(ast: Node, asyncFilters: readonly string[] = []) {
+function liftFilters(ast: Node, filters: readonly string[] = []) {
+	console.log('liftFilters')
 	function _liftFilters(
 		node: Node,
-		asyncFilters: readonly string[],
 		key?: string
 	): Node {
 		const children: Node[] = [];
-
+		
 		const walked = walk(
 			key ? node[key] : node,
 			(descNode) => {
@@ -122,29 +117,28 @@ function liftFilters(ast: Node, asyncFilters: readonly string[] = []) {
 					return descNode;
 				}
 
-				const isAsyncFilter =
-					descNode instanceof Filter &&
-					asyncFilters.indexOf(descNode.name.value as string) !== -1;
+				// const isAsyncFilter =
+				// 	descNode instanceof Filter &&
+				// 	asyncFilters.indexOf(descNode.name.value as string) !== -1;
 
-				if (isAsyncFilter || descNode instanceof CallExtensionAsync) {
-					symbol = new Symbol(descNode.lineno, descNode?.colno, gensym());
+				// if (isAsyncFilter || descNode instanceof CallExtensionAsync) {
+				// 	symbol = new Symbol(descNode.lineno, descNode?.colno, gensym());
 
-					children?.push(
-						new FilterAsync(
-							descNode.lineno,
-							descNode?.colno,
-							descNode.name,
-							descNode.args,
-							symbol
-						)
-					);
-				}
+				// 	children?.push(
+				// 		new FilterAsync(
+				// 			descNode.lineno,
+				// 			descNode?.colno,
+				// 			descNode.name,
+				// 			descNode.args,
+				// 			symbol
+				// 		)
+				// 	);
+				// }
 
 				return symbol;
 			},
 			true
 		) as unknown as Node;
-
 		if (key) {
 			node[key] = walked;
 		} else {
@@ -162,15 +156,15 @@ function liftFilters(ast: Node, asyncFilters: readonly string[] = []) {
 		ast,
 		(node) => {
 			if (node instanceof Output) {
-				return _liftFilters(node, asyncFilters);
+				return _liftFilters(node);
 			} else if (node instanceof Set) {
-				return _liftFilters(node, asyncFilters, 'value');
+				return _liftFilters(node, 'value');
 			} else if (node instanceof For) {
-				return _liftFilters(node, asyncFilters, 'arr');
+				return _liftFilters(node, 'arr');
 			} else if (node instanceof If) {
-				return _liftFilters(node, asyncFilters, 'cond');
+				return _liftFilters(node, 'cond');
 			} else if (node instanceof CallExtension) {
-				return _liftFilters(node, asyncFilters, 'args');
+				return _liftFilters(node, 'args');
 			}
 			return undefined;
 		},
@@ -208,44 +202,38 @@ function convertStatements(ast: Node): Node {
 			if (!(node instanceof If) && !(node instanceof For)) {
 				return undefined;
 			}
-
-			let isAsync = false;
 			walk(node, (child) => {
 				if (
-					child instanceof FilterAsync ||
-					child instanceof IfAsync ||
-					child instanceof AsyncEach ||
-					child instanceof AsyncAll ||
-					child instanceof CallExtensionAsync
+					child instanceof For ||
+					child instanceof If ||
+					child instanceof CallExtension
 				) {
-					isAsync = true;
 					// Stop iterating by returning the node
 					return child;
 				}
 				return undefined;
 			});
 
-			if (isAsync) {
-				if (node instanceof If) {
-					return new IfAsync(
-						node.lineno,
-						node?.colno,
-						node.cond,
-						node.body,
-						node.else_
-					);
-				} else if (node instanceof For && !(node instanceof AsyncAll)) {
-					return new AsyncEach(
-						node.lineno,
-						node?.colno,
-						node.arr,
-						node.name,
-						node.body,
-						node.else_
-					);
-				}
-			}
-			return undefined;
+			// if (node instanceof If) {
+			// 	return new If(
+			// 		node.lineno,
+			// 		node?.colno,
+			// 		node.cond,
+			// 		node.body,
+			// 		node.else_
+			// 	);
+			// } else if (node instanceof For) {
+			// 	return new For(
+			// 		node.lineno,
+			// 		node?.colno,
+			// 		node.arr,
+			// 		node.name,
+			// 		node.body,
+			// 		node.else_
+			// 	);
+			// }
+			
+			// return undefined;
 		},
 		true
 	);
@@ -253,7 +241,6 @@ function convertStatements(ast: Node): Node {
 
 export function transform(
 	ast: Node,
-	asyncFilters: readonly string[] = []
 ): Node {
-	return convertStatements(liftSuper(liftFilters(ast, asyncFilters)));
+	return convertStatements(liftSuper(liftFilters(ast)));
 }

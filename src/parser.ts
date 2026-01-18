@@ -19,19 +19,17 @@ import {
 	TOKEN_PIPE,
 	TOKEN_LEFT_CURLY,
 } from './lexer';
+import { LoaderSrcType } from './loader';
 
 import * as lexer from './lexer';
 import {
 	Add,
 	And,
 	ArrayNode,
-	AsyncEach,
-	AsyncAll,
 	BinOp,
 	Block,
 	Caller,
 	CallExtension,
-	CallExtensionAsync,
 	Capture,
 	Case,
 	Compare,
@@ -41,14 +39,12 @@ import {
 	Div,
 	Extends,
 	Filter,
-	FilterAsync,
 	FloorDiv,
 	For,
 	FromImport,
 	FunCall,
 	Group,
 	If,
-	IfAsync,
 	Import,
 	In,
 	Include,
@@ -79,7 +75,8 @@ import {
 	UnaryOp,
 	Value,
 } from './nodes';
-import { TemplateError, p } from './lib';
+import { TemplateError } from './template';
+import { p } from './lib';
 import { Token, ParserExtension } from './types';
 
 export class Parser {
@@ -98,7 +95,6 @@ export class Parser {
 
 	nextToken(withWhitespace: boolean = false): Token | null {
 		let tok: Token;
-
 		if (this.peeked) {
 			if (!withWhitespace && this.peeked.type === TOKEN_WHITESPACE) {
 				this.peeked = null;
@@ -111,12 +107,13 @@ export class Parser {
 
 		tok = this.tokenizer.nextToken();
 
+
 		if (!withWhitespace) {
+			
 			while (tok && tok.type === TOKEN_WHITESPACE) {
 				tok = this.tokenizer.nextToken();
 			}
 		}
-
 		return tok;
 	}
 
@@ -140,12 +137,7 @@ export class Parser {
 		}
 		if (lineno !== undefined) lineno += 1;
 		if (colno !== undefined) colno += 1;
-		// p.log;
-		return TemplateError(msg, lineno, colno);
-	}
-
-	fail(msg: string, lineno: number = 0, colno: number = 0) {
-		throw this.error(msg, lineno, colno);
+		throw TemplateError(msg, lineno, colno);
 	}
 
 	skip(type: string) {
@@ -159,8 +151,9 @@ export class Parser {
 
 	expect(type: string) {
 		var tok = this.nextToken();
+		p.log('Unexpected type?')
 		if (tok.type !== type) {
-			this.fail(
+			this.error(
 				'expected ' + type + ', got ' + tok.type,
 				tok?.lineno,
 				tok?.colno
@@ -189,11 +182,11 @@ export class Parser {
 
 			if (!tok) {
 				p.err('End of file?');
-				this.fail('unexpected end of file');
+				this.error('unexpected end of file');
 			}
 
 			if (tok.type !== TOKEN_SYMBOL) {
-				this.fail(
+				this.error(
 					'advanceAfterBlockEnd: expected symbol token or ' +
 						'explicit name to be passed'
 				);
@@ -209,7 +202,7 @@ export class Parser {
 				this.dropLeadingWhitespace = true;
 			}
 		} else {
-			this.fail('expected block end in ' + name + ' statement');
+			this.error('expected block end in ' + name + ' statement');
 		}
 
 		return tok;
@@ -226,7 +219,7 @@ export class Parser {
 			return;
 		}
 		this?.pushToken(tok);
-		this.fail('expected variable end');
+		this.error('expected variable end');
 	}
 
 	parseFor() {
@@ -237,20 +230,14 @@ export class Parser {
 		if (this.skipSymbol('for')) {
 			node = new For(forTok?.lineno, forTok?.colno);
 			endBlock = 'endfor';
-		} else if (this.skipSymbol('asyncEach')) {
-			node = new AsyncEach(forTok?.lineno, forTok?.colno);
-			endBlock = 'endeach';
-		} else if (this.skipSymbol('asyncAll')) {
-			node = new AsyncAll(forTok?.lineno, forTok?.colno);
-			endBlock = 'endall';
 		} else {
-			this.fail('parseFor: expected for{Async}', forTok?.lineno, forTok?.colno);
+			this.error('parseFor: expected for{Async}', forTok?.lineno, forTok?.colno);
 		}
 
 		node.name = this.parsePrimary();
 
 		if (!(node.name instanceof Symbol)) {
-			this.fail('parseFor: variable name expected for loop');
+			this.error('parseFor: variable name expected for loop');
 		}
 
 		const type = this.peekToken().type;
@@ -267,7 +254,7 @@ export class Parser {
 		}
 
 		if (!this.skipSymbol('in')) {
-			this.fail(
+			this.error(
 				'parseFor: expected "in" keyword for loop',
 				forTok?.lineno,
 				forTok?.colno
@@ -292,7 +279,7 @@ export class Parser {
 	parseMacro() {
 		const macroTok = this.peekToken();
 		if (!this.skipSymbol('macro')) {
-			this.fail('expected macro');
+			this.error('expected macro');
 		}
 
 		const name = this.parsePrimary(true);
@@ -311,7 +298,7 @@ export class Parser {
 		// 'caller' kwarg which is a Caller node.
 		var callTok = this.peekToken();
 		if (!this.skipSymbol('call')) {
-			this.fail('expected call');
+			this.error('expected call');
 		}
 
 		const callerArgs = this.parseSignature(true) || new NodeList();
@@ -356,7 +343,7 @@ export class Parser {
 
 		if (withContext !== null) {
 			if (!this.skipSymbol('context')) {
-				this.fail(
+				this.error(
 					'parseFrom: expected context after with/without',
 					tok?.lineno,
 					tok?.colno
@@ -370,7 +357,7 @@ export class Parser {
 	parseImport() {
 		var importTok = this.peekToken();
 		if (!this.skipSymbol('import')) {
-			this.fail(
+			this.error(
 				'parseImport: expected import',
 				importTok?.lineno,
 				importTok?.colno
@@ -380,7 +367,7 @@ export class Parser {
 		const template = this.parseInlineIf();
 
 		if (!this.skipSymbol('as')) {
-			this.fail(
+			this.error(
 				'parseImport: expected "as" keyword',
 				importTok?.lineno,
 				importTok?.colno
@@ -405,13 +392,13 @@ export class Parser {
 	parseFrom() {
 		const fromTok = this.peekToken();
 		if (!this.skipSymbol('from')) {
-			this.fail('parseFrom: expected from');
+			this.error('parseFrom: expected from');
 		}
 
 		const template = this.parseInlineIf();
 
 		if (!this.skipSymbol('import')) {
-			this.fail('parseFrom: expected import', fromTok?.lineno, fromTok?.colno);
+			this.error('parseFrom: expected import', fromTok?.lineno, fromTok?.colno);
 		}
 
 		const names = new NodeList();
@@ -422,7 +409,7 @@ export class Parser {
 			const nextTok = this.peekToken();
 			if (nextTok.type === TOKEN_BLOCK_END) {
 				if (!names.children?.length) {
-					this.fail(
+					this.error(
 						'parseFrom: Expected at least one import name',
 						fromTok?.lineno,
 						fromTok?.colno
@@ -441,12 +428,12 @@ export class Parser {
 			}
 
 			if (names.children?.length > 0 && !this.skip(TOKEN_COMMA)) {
-				this.fail('parseFrom: expected comma', fromTok?.lineno, fromTok?.colno);
+				this.error('parseFrom: expected comma', fromTok?.lineno, fromTok?.colno);
 			}
 
 			const name = this.parsePrimary();
 			if (name.value.charAt(0) === '_') {
-				this.fail(
+				this.error(
 					'parseFrom: names starting with an underscore cannot be imported',
 					name?.lineno,
 					name?.colno
@@ -475,14 +462,14 @@ export class Parser {
 	parseBlock() {
 		const tag = this.peekToken();
 		if (!this.skipSymbol('block')) {
-			this.fail('parseBlock: expected block', tag?.lineno, tag?.colno);
+			this.error('parseBlock: expected block', tag?.lineno, tag?.colno);
 		}
 
 		const node = new Block(tag?.lineno, tag?.colno);
 
 		node.name = this.parsePrimary();
 		if (!(node.name instanceof Symbol)) {
-			this.fail('parseBlock: variable name expected', tag?.lineno, tag?.colno);
+			this.error('parseBlock: variable name expected', tag?.lineno, tag?.colno);
 		}
 
 		this.advanceAfterBlockEnd(tag.value);
@@ -492,9 +479,11 @@ export class Parser {
 		this.skipSymbol(node.name.value as Symbol);
 
 		const tok = this.peekToken();
-		if (!tok) {
-			this.fail('parseBlock: expected endblock, got end of file');
+		if (!tok || tok === null) {
+			this.error('parseBlock: expected endblock, got end of file');
+
 		}
+		p.warn('Tok is',tok, typeof tok)
 
 		this.advanceAfterBlockEnd(tok.value);
 
@@ -506,7 +495,7 @@ export class Parser {
 		p.log('Trying to parse extend');
 		const tag = this.peekToken();
 		if (!this.skipSymbol(tagName)) {
-			this.fail('parseTemplateRef: expected ' + tagName);
+			this.error('parseTemplateRef: expected ' + tagName);
 		}
 
 		const node = new Extends(tag?.lineno, tag?.colno);
@@ -522,7 +511,7 @@ export class Parser {
 		const tagName = 'include';
 		const tag = this.peekToken();
 		if (!this.skipSymbol(tagName)) {
-			this.fail('parseInclude: expected ' + tagName);
+			this.error('parseInclude: expected ' + tagName);
 		}
 
 		const node = new Include(tag?.lineno, tag?.colno);
@@ -546,10 +535,8 @@ export class Parser {
 			this.skipSymbol('elseif')
 		) {
 			node = new If(tag?.lineno, tag?.colno);
-		} else if (this.skipSymbol('ifAsync')) {
-			node = new IfAsync(tag?.lineno, tag?.colno);
 		} else {
-			this.fail(
+			this.error(
 				'parseIf: expected if, elif, or elseif',
 				tag?.lineno,
 				tag?.colno
@@ -577,7 +564,7 @@ export class Parser {
 				this.advanceAfterBlockEnd();
 				break;
 			default:
-				this.fail('parseIf: expected elif, else, or endif, got end of file');
+				this.error('parseIf: expected elif, else, or endif, got end of file');
 		}
 
 		return node;
@@ -586,7 +573,7 @@ export class Parser {
 	parseSet() {
 		const tag = this.peekToken();
 		if (!this.skipSymbol('set')) {
-			this.fail('parseSet: expected set', tag?.lineno, tag?.colno);
+			this.error('parseSet: expected set', tag?.lineno, tag?.colno);
 		}
 
 		const node = new Set(tag?.lineno, tag?.colno, []);
@@ -602,7 +589,7 @@ export class Parser {
 
 		if (!this.skipValue(TOKEN_OPERATOR, '=')) {
 			if (!this.skip(TOKEN_BLOCK_END)) {
-				this.fail(
+				this.error(
 					'parseSet: expected = or block end in set tag',
 					tag?.lineno,
 					tag?.colno
@@ -643,7 +630,7 @@ export class Parser {
 			!this.skipSymbol(caseStart) &&
 			!this.skipSymbol(caseDefault)
 		) {
-			this.fail(
+			this.error(
 				'parseSwitch: expected "switch," "case" or "default"',
 				tag?.lineno,
 				tag?.colno
@@ -689,7 +676,7 @@ export class Parser {
 				break;
 			default:
 				// otherwise bail because EOF
-				this.fail(
+				this.error(
 					'parseSwitch: expected "case," "default" or "endswitch," got EOF.'
 				);
 		}
@@ -703,7 +690,7 @@ export class Parser {
 		let node;
 
 		if (tok.type !== TOKEN_SYMBOL) {
-			this.fail('tag name expected', tok?.lineno, tok?.colno);
+			this.error('tag name expected', tok?.lineno, tok?.colno);
 		}
 
 		if (this.breakOnBlocks && this.breakOnBlocks.indexOf(tok.value) !== -1) {
@@ -715,11 +702,8 @@ export class Parser {
 			case 'verbatim':
 				return this.parseRaw(tok.value); //'raw' | 'verbatim'
 			case 'if':
-			case 'ifAsync':
 				return this.parseIf();
 			case 'for':
-			case 'asyncEach':
-			case 'asyncAll':
 				return this.parseFor();
 			case 'block':
 				return this.parseBlock();
@@ -750,7 +734,7 @@ export class Parser {
 						}
 					}
 				}
-				this.fail('unknown block tag: ' + tok.value, tok?.lineno, tok?.colno);
+				this.error('unknown block tag: ' + tok.value, tok?.lineno, tok?.colno);
 		}
 
 		return node;
@@ -820,7 +804,7 @@ export class Parser {
 				// Reference
 				lookup = this.parseAggregate();
 				if (lookup.children?.length > 1) {
-					this.fail('invalid index');
+					this.error('invalid index');
 				}
 
 				node = new LookupVal(tok?.lineno, tok?.colno, node, lookup.children[0]);
@@ -830,7 +814,7 @@ export class Parser {
 				const val = this.nextToken();
 
 				if (val.type !== TOKEN_SYMBOL) {
-					this.fail(
+					this.error(
 						'expected name as lookup value, got ' + val.value,
 						val?.lineno,
 						val?.colno
@@ -1068,7 +1052,7 @@ export class Parser {
 		let node = null;
 
 		if (!tok) {
-			this.fail('expected expression, got end of file');
+			this.error('expected expression, got end of file');
 		} else if (tok.type === TOKEN_STRING) {
 			val = tok.value;
 		} else if (tok.type === TOKEN_INT) {
@@ -1081,7 +1065,7 @@ export class Parser {
 			} else if (tok.value === 'false') {
 				val = false;
 			} else {
-				this.fail('invalid boolean: ' + tok.value, tok?.lineno, tok?.colno);
+				this.error('invalid boolean: ' + tok.value, tok?.lineno, tok?.colno);
 			}
 		} else if (tok.type === TOKEN_NONE) {
 			val = null;
@@ -1159,7 +1143,7 @@ export class Parser {
 	parseFilterStatement() {
 		var filterTok = this.peekToken();
 		if (!this.skipSymbol('filter')) {
-			this.fail('parseFilterStatement: expected filter');
+			this.error('parseFilterStatement: expected filter');
 		}
 
 		const name = this.parseFilterName();
@@ -1216,7 +1200,7 @@ export class Parser {
 
 			if (node.children?.length > 0) {
 				if (!this.skip(lexer.TOKEN_COMMA)) {
-					this.fail(
+					this.error(
 						'parseAggregate: expected comma after expression',
 						tok?.lineno,
 						tok?.colno
@@ -1231,7 +1215,7 @@ export class Parser {
 				// We expect a key/value pair for dicts, separated by a
 				// colon
 				if (!this.skip(lexer.TOKEN_COLON)) {
-					this.fail(
+					this.error(
 						'parseAggregate: expected colon after dict key',
 						tok?.lineno,
 						tok?.colno
@@ -1257,7 +1241,7 @@ export class Parser {
 			if (tolerant) {
 				return null;
 			} else {
-				this.fail('expected arguments', tok?.lineno, tok?.colno);
+				this.error('expected arguments', tok?.lineno, tok?.colno);
 			}
 		}
 
@@ -1280,7 +1264,7 @@ export class Parser {
 			}
 
 			if (checkComma && !this.skip(TOKEN_COMMA)) {
-				this.fail(
+				this.error(
 					'parseSignature: expected comma after expression',
 					tok?.lineno,
 					tok?.colno
@@ -1320,8 +1304,8 @@ export class Parser {
 	parseNodes() {
 		let tok;
 		const buf = [];
-
-		while ((tok = this.nextToken())) {
+		p.log('Parsing nodes',this.nextToken() )
+		while ((tok = this.nextToken())) {	
 			if (tok.type === lexer.TOKEN_DATA) {
 				let data = tok.value;
 				const nextToken = this.peekToken();
@@ -1375,15 +1359,15 @@ export class Parser {
 						tok.value?.length - this.tokenizer.tags.COMMENT_END?.length - 1
 					) === '-';
 			} else {
-				// Ignore comments, otherwise this should be an error
-				this.fail(
+				p.error('Error is here', tok)
+				this.error(
 					'Unexpected token at top-level: ' + tok.type,
 					tok?.lineno,
 					tok?.colno
 				);
 			}
 		}
-
+		p.log('Never exists')
 		return buf;
 	}
 
@@ -1396,8 +1380,9 @@ export class Parser {
 	}
 }
 
-export const parse = (src: any, extensions: any, opts: any) => {
-	var p = new Parser(lexer.lex(src, opts));
+export const parse = (src: LoaderSrcType, extensions: any[], opts: any) => {
+	console.log('Parsing',src)
+	const p = new Parser(lexer.lex(src, opts));
 	if (extensions !== undefined) {
 		p.extensions = extensions;
 	}

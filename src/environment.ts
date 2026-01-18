@@ -1,23 +1,24 @@
 //TODO: Sun 4th Jan 2026 
+import _path from 'node:path'
 import EventEmitter from 'events';
 import {
 	without,
 	isFunction,
-	asyncIter,
-	_prettifyError,
 	isString,
 	TemplateErr,
 	p,
 } from './lib';
-import * as compiler from './compiler';
 import * as filters from './filters';
-import { Loader, FileSystemLoader, PrecompiledLoader } from './loader';
+import { Loader, FileSystemLoader, PrecompiledLoader, LoaderEnum } from './loader';
+import { Context } from './context';
+import { Template } from './template'
 
 import { globals, IGlobals } from './globals';
-import { Frame } from './runtime';
+import { Frame } from './frame';
 import { Callback } from './types';
 import { express as expressApp } from './express-app';
 import * as runtime from './runtime';
+
 
 // TODO: temporary fix
 declare global {
@@ -57,8 +58,10 @@ const root: RootRenderFunctionProps = (env, context, frame, runtime, cb) => {
 	}
 };
 
+type ITemplateSrc = { type: LoaderEnum; obj: any };
+
 const noopTmplSrc: ITemplateSrc = {
-	type: 'code',
+	type: LoaderEnum.default,
 	obj: {
 		root: root,
 	},
@@ -72,6 +75,7 @@ interface IEnvironmentOpts {
 	lstripBlocks?: boolean;
 	dev?: boolean;
 	loaders?: Loader[];
+	ext?: string;
 }
 
 export class Environment extends EventEmitter {
@@ -84,11 +88,8 @@ export class Environment extends EventEmitter {
 	dev: boolean = true;
 	autoescape: boolean = true;
 	loaders: Loader[] = [new FileSystemLoader(['views'])];
-	asyncFilters: string[] = [];
 	path: string;
-
-
-	// TODO: figure out types here
+	ext?: string;
 
 	extensionsList: any[] = [];
 	extensions: Record<string, any> = {};
@@ -104,6 +105,7 @@ export class Environment extends EventEmitter {
 		this.lstripBlocks = opts?.lstripBlocks || false;
 		this.autoescape = opts?.autoescape || true;
 		this.loaders = opts?.loaders || [new FileSystemLoader([this.path])];
+		this.ext = opts?.ext || '.njk'
 
 		if (typeof window !== 'undefined' && window.nunjucksPrecompiled) {
 			this.loaders.unshift(new PrecompiledLoader(window.nunjucksPrecompiled));
@@ -116,11 +118,11 @@ export class Environment extends EventEmitter {
 		Object.entries(filters).forEach(([name, filter]) =>
 			this.addFilter(name, filter)
 		);
+		p.log('Filters', filters)
 	}
 
 	_initLoaders() {
 		this.loaders.forEach((loader) => {
-			// Caching and cache busting
 			loader.cache = {};
 			if (typeof loader.on === 'function') {
 				loader.on('update', (name, fullname) => {
@@ -134,41 +136,32 @@ export class Environment extends EventEmitter {
 		});
 	}
 
-	invalidateCache() {
-		this.loaders.forEach((loader) => {
-			loader.cache = {};
-		});
-	}
+	// addExtension(name: string, extension: Record<string, any>) {
+	// 	extension.__name = name;
+	// 	this.extensions[name] = extension;
+	// 	this.extensionsList?.push(extension);
+	// 	return this;
+	// }
 
-	addExtension(name: string, extension: Record<string, any>) {
-		extension.__name = name;
-		this.extensions[name] = extension;
-		this.extensionsList?.push(extension);
-		return this;
-	}
+	// removeExtension(name: string) {
+	// 	var extension = this.getExtension(name);
+	// 	if (!extension) {
+	// 		return;
+	// 	}
 
-	removeExtension(name: string) {
-		var extension = this.getExtension(name);
-		if (!extension) {
-			return;
-		}
-
-		this.extensionsList = without(this.extensionsList, extension);
-		delete this.extensions[name];
-	}
+	// 	this.extensionsList = without(this.extensionsList, extension);
+	// 	delete this.extensions[name];
+	// }
 
 	getExtension(name: string) {
 		return this.extensions[name];
 	}
 
-	hasExtension(name: string): boolean {
-		return !!this.extensions[name];
-	}
+	// hasExtension(name: string): boolean {
+	// 	return !!this.extensions[name];
+	// }
 
-	addFilter(name: string, func: Function, async?: any[]) {
-		if (async) {
-			this.asyncFilters?.push(name);
-		}
+	addFilter(name: string, func: Function) {
 		this.filters[name] = func;
 		return this;
 	}
@@ -184,7 +177,6 @@ export class Environment extends EventEmitter {
 	resolveTemplate(loader: Loader, parentName: string, filename: string) {
 		let isRelative =
 			loader.isRelative && parentName ? loader.isRelative(filename) : false;
-		p.warn('Is relative: ', isRelative, parentName, loader, '\n',loader.typename)
 		return isRelative && loader.resolve
 			? loader.resolve(parentName, filename)
 			: filename;
@@ -209,35 +201,33 @@ export class Environment extends EventEmitter {
 			else syncResult = out;
 		};
 
-		asyncIter(
-			this.loaders,
-			(loader, _i, next, finish) => {
-				function handle(err: any, src: any) {
-					if (err) finish(err);
-					else if (src) {
-						src.loader = loader;
-						finish(null, src);
-					} else next();
-				}
+		this.loaders.forEach((loader, i) => {
+			try {	
 				const resolved = this.resolveTemplate(loader, parentName, name);
-				if (loader.async) loader.getSource(resolved, handle);
-				else handle(null, loader.getSource(resolved));
-			},
-			done
-		);
+				const src = loader.getSource(resolved)
+				done(null, src)
+			} catch(err) {
+				p.err('getTemplateInfo', err)
+				done(err)
+			}
+		})
 		return syncResult;
 	}
 
-	getTemplate(name: any, cb?: Callback, opts?: getTemplateOps) {
+	getTemplate(name: string | any, cb?: Callback, opts?: getTemplateOps) {
 		p.log('Getting template');
 		let tmpl = null;
 		const parentName = opts?.parentName || null;
-		p.err('Parent name is: ', parentName, name)
 		const eagerCompile = opts?.eagerCompile || false;
 		const ignoreMissing = opts?.ignoreMissing || false;
 		if (name && name.raw) {
 			name = name.raw;
 		}
+		if(!_path.extname(name)){
+			name = name + this.ext
+		}
+
+		p.log('name', name )
 
 		if (name instanceof Template) {
 			tmpl = name;
@@ -268,9 +258,10 @@ export class Environment extends EventEmitter {
 		let syncResult;
 		const createTemplate = (err: any, info) => {
 			if (!info && !err && !ignoreMissing) {
+				
 				err = new Error('template not found: ' + name);
 			}
-
+			p.log('Info',info, 'err', err)
 			if (err) {
 				if (cb) {
 					cb(err);
@@ -294,31 +285,21 @@ export class Environment extends EventEmitter {
 				syncResult = newTmpl;
 			}
 		};
-
-		asyncIter(
-			this.loaders,
-			(loader, _i, next, done) => {
-
-				function handle(err, src) {
-					if (err) {
-						done(err);
-					} else if (src) {
-						src.loader = loader;
-						done(null, src);
-					} else {
-						next();
-					}
-				}
-				name = this.resolveTemplate(loader, parentName, name);
-				p.log('Name is: ',  name, parentName, loader)
-				if (loader.async) {
-					loader.getSource(name, handle);
-				} else {
-					handle(null, loader.getSource(name));
-				}
-			},
-			createTemplate
-		);
+		this.loaders.forEach((loader, i) => {
+			name = this.resolveTemplate(loader, parentName, name);
+			try {
+				const src = loader.getSource(name);
+				console.log(src)
+				src.loader = loader	
+				p.log('Src ', src)
+				createTemplate(null, src);
+				// else next()
+				
+			} catch(err) {
+				p.err('environment-','AsyncIter: ',err)
+				createTemplate(err, null)
+			}
+		})
 
 		return syncResult;
 	}
@@ -340,19 +321,16 @@ export class Environment extends EventEmitter {
 		// synchronously.
 		let syncResult = null;
 
-		this.getTemplate(name, (err: TemplateErr, tmpl: any) => {
-			if (err && cb) {
+		this.getTemplate(name, (err: TemplateErr, tmpl: Template) => {
+			if (err) {
 				cb(err);
-			} else if (err) {
-				throw err;
 			} else {
-				p.log('Getting template');
 				syncResult = tmpl.render(ctx, cb);
 			}
 		});
 		// p.log('ALREADY RETURNED', syncResult);
 
-		// return syncResult;
+		return syncResult;
 	}
 
 	renderString(src: any, ctx: any, opts: any, cb?: Callback) {
@@ -369,330 +347,4 @@ export class Environment extends EventEmitter {
 		return this.constructor.name;
 	}
 
-	waterfall(tasks: any, callback: Callback, forceAsync: any) {
-		return function waterfall(tasks, done: Callback) {
-			let i = 0;
-			function next(err, res) {
-				if (err) {
-					p.err(err);
-					return done(err);
-				}
-				const task = tasks[i++];
-				if (!task) return done(null, res);
-
-				// first task: (cb), others: (res, cb)
-				if (task?.length <= 1) task(next);
-				else task(res, next);
-			}
-
-			next(null, undefined);
-		};
-	}
-}
-
-export class Context {
-	exported: any[] = [];
-	compiled: boolean = false;
-
-	constructor(
-		public ctx: Record<string, any> = {},
-		public blocks: Record<string, any> = {},
-		public env = new Environment(),
-		public lineno: number = 0,
-		public colno: number = 0
-	) {
-		this.ctx = { ...ctx };
-
-		Object.keys(blocks).forEach((name) => {
-			this.addBlock(name, blocks[name]);
-		});
-	}
-
-	get typename(): string {
-		return 'Context';
-	}
-
-	lookup(name: string) {
-		// This is one of the most called functions, so optimize for
-		// the typical case where the name isn't in the globals
-
-		if (name in this.env.globals && !(name in this.ctx)) {
-			return this.env.globals[name];
-		} else {
-			p.debug('ctx local:', this.ctx, name);
-			return this.ctx[name];
-		}
-	}
-
-	setVariable(name: string, val: any) {
-		this.ctx[name] = val;
-	}
-
-	getVariables() {
-		return this.ctx;
-	}
-
-	addBlock(name: string, block) {
-		this.blocks[name] = this.blocks[name] || [];
-		p.warn('\nBlocks added are: ', this.blocks[name], block);
-		if (typeof this.blocks[name]?.push === 'function')
-			this.blocks[name]?.push(block);
-		return this;
-	}
-
-	getBlock(name: string) {
-		if (!this.blocks[name]) {
-			throw new Error('unknown block "' + name + '"');
-		}
-
-		return this.blocks[name][0];
-	}
-
-	// TODO: fix any here
-	getSuper(
-		env: Environment,
-		name: string,
-		block: any,
-		frame: any,
-		runtime: any,
-		cb: Callback
-	) {
-		var idx = (this.blocks[name] || []).indexOf(block);
-		var blk = this.blocks[name][idx + 1];
-		var context = this;
-
-		if (idx === -1 || !blk) {
-			throw new Error('no super block available for "' + name + '"');
-		}
-
-		blk(env, context, frame, runtime, cb);
-	}
-
-	addExport(name: string) {
-		this.exported?.push(name);
-	}
-
-	getExported() {
-		var exported = {};
-		this.exported.forEach((name) => {
-			exported[name] = this.ctx[name];
-		});
-		return exported;
-	}
-}
-
-type ITemplateSrc = { type: 'code' | 'string'; obj: any };
-export class Template {
-	env: Environment = new Environment();
-	tmplProps?: Record<string, any>;
-	tmplStr: string | Record<string, any> = {};
-	path: string = '';
-	blocks: any;
-	compiled: boolean = false;
-	rootRenderFunction: any;
-	constructor(
-		src: ITemplateSrc | string,
-		env = new Environment(),
-		path: string,
-		eagerCompile?: any,
-		public lineno: number = 0,
-		public colno: number = 0
-	) {
-		this.env = env;
-
-		if (isString(src)) {
-			this.tmplStr = src;
-		} else {
-			switch (src.type) {
-				case 'code':
-					this.tmplProps = src.obj;
-					break;
-				case 'string':
-					this.tmplStr = src.obj;
-					break;
-				default:
-					p.err(src);
-					throw new Error(
-						`Unexpected template object type ${src.type}; expected 'code', or 'string'`
-					);
-			}
-		}
-		this.path = path;
-
-		if (eagerCompile) {
-			try {
-				this._compile();
-			} catch (err: any) {
-				throw _prettifyError(this.path, this.env.dev, err);
-			}
-		} else {
-			this.compiled = false;
-		}
-	}
-
-	render(ctx: any, parentFrame?: any, cb?: Callback) {
-		if (typeof ctx === 'function') {
-			cb = ctx;
-			ctx = {};
-		} else if (typeof parentFrame === 'function') {
-			p.log('Parent frame set as cb');
-			cb = parentFrame;
-			parentFrame = null;
-		}
-		// If there is a parent frame, we are being called from internal
-		// code of another template, and the internal system
-		// depends on the sync/async nature of the parent template
-		// to be inherited, so force an async callback
-
-		// Catch compile errors for async rendering
-		try {
-			this.compile();
-		} catch (e) {
-			const err = _prettifyError(this.path, this.env.dev, e);
-			if (cb) {
-				return cb(err);
-			} else {
-				throw err;
-			}
-		}
-
-		const context = new Context(ctx || {}, this.blocks, this.env);
-		const frame = parentFrame ? parentFrame?.push(true) : new Frame();
-		frame.topLevel = true;
-		let syncResult = null;
-		let didError = false;
-		// p.log(
-		// 	'Before setup: ',
-		// 	this.env,
-		// 	'\nctx:',
-		// 	context,
-		// 	'\nFrame: ',
-		// 	frame,
-		// 	'\nRuntime: ',
-		// 	runtime
-		// );
-		// p.log(this.env, context, frame, runtime);
-		if (!this.rootRenderFunction) this.rootRenderFunction = root;
-		this.rootRenderFunction(this.env, context, frame, runtime, (err, res) => {
-			// TODO: this is actually a bug in the compiled template (because waterfall
-			// tasks are both not passing errors up the chain of callbacks AND are not
-			// causing a return from the top-most render function). But fixing that
-			// will require a more substantial change to the compiler.
-			// if (cb && typeof res !== 'undefined') {
-			// 	// prevent multiple calls to cb
-			// 	p.log('SOMEHOW HERE');
-			// 	resolve('Somehow here');
-			// 	return;
-			// }
-			if (didError && cb && typeof res !== 'undefined') {
-				// prevent multiple calls to cb
-				return;
-			}
-			if (err) {
-				p.err('err: ', err);
-				err = _prettifyError(this.path, this.env.dev, err as TemplateErr);
-				cb(err);
-				didError = true;
-				return;
-			}
-
-			if (cb) {
-				cb(err, res);
-			} else {
-				syncResult = res;
-			}
-		});
-
-		return syncResult;
-	}
-
-	getExported(ctx: any, parentFrame: any, cb: Callback) {
-		// eslint-disable-line consistent-return
-		if (typeof ctx === 'function') {
-			cb = ctx;
-			ctx = {};
-		}
-
-		if (typeof parentFrame === 'function') {
-			cb = parentFrame;
-			parentFrame = null;
-		}
-
-		// Catch compile errors for async rendering
-		try {
-			this.compile();
-		} catch (e) {
-			if (cb) {
-				return cb(e);
-			} else {
-				throw e;
-			}
-		}
-
-		const frame = parentFrame ? parentFrame?.push() : new Frame();
-		frame.topLevel = true;
-
-		// Run the rootRenderFunc to populate the context with exported vars
-		const context = new Context(ctx || {}, this.blocks, this.env);
-		// p.log(
-		// 	'Before setup: ',
-		// 	this.env,
-		// 	'\nctx:',
-		// 	context,
-		// 	'\nFrame: ',
-		// 	frame,
-		// 	'\nRuntime: ',
-		// 	runtime
-		// );
-		// p.log('rootRenderFunc: ', this.rootRenderFunc);
-		if (!this.rootRenderFunction) this.rootRenderFunction = root;
-		p.err('rootRenderFunction', this.rootRenderFunction);
-		this.rootRenderFunction(this.env, context, frame, runtime, (err) => {
-			if (err) {
-				cb(err, null);
-			} else {
-				cb(null, context.getExported());
-			}
-		});
-	}
-
-	compile() {
-		if (!this.compiled) this._compile();
-	}
-
-	_compile() {
-		let props;
-
-		if (this.tmplProps) {
-			props = this.tmplProps;
-		} else {
-			const source = compiler.compile(
-				this.tmplStr as string,
-				this.env.asyncFilters,
-				this.env.extensionsList,
-				this.path,
-				{}
-			);
-			p.log('Source is: ', source);
-
-			const func = new Function(source); // eslint-disable-line no-new-func
-			props = func();
-		}
-
-		this.blocks = this._getBlocks(props);
-		this.rootRenderFunction = props.root;
-		this.compiled = true;
-	}
-
-	_getBlocks(props) {
-		var blocks = {};
-
-		Object.keys(props).forEach((k) => {
-			if (k.slice(0, 2) === 'b_') {
-				blocks[k.slice(2)] = props[k];
-			}
-		});
-
-		return blocks;
-	}
 }

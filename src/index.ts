@@ -1,6 +1,8 @@
 import { isString, p } from './lib';
-import { Environment, Template, Context } from './environment';
-import { FileSystemLoader, Loader, MemoryLoader } from './loader';
+import { Environment, } from './environment';
+import { Context } from './context';
+import { Template } from './template';
+import { FileSystemLoader, Loader, MemoryLoader, LoaderEnum } from './loader';
 
 import { Callback } from './types';
 
@@ -8,14 +10,13 @@ export * from './runtime';
 export * as lib from './lib';
 export * as lexer from './lexer';
 export * as parser from './parser';
-export * as nodes from './nodes';
-export * as compiler from './compiler';
+export * as nodes from './nodes'
 // Maybe should be private?
+export * from './express-app'
 export * as transformer from './transformer';
 
 let e: Environment = new Environment();
 
-type LoaderType = 'file' | 'web' | 'memory';
 
 interface IConfigureOptions {
 	path?: string;
@@ -27,7 +28,7 @@ interface IConfigureOptions {
 	watch?: boolean;
 	cache?: boolean;
 	loaders?: Loader[];
-	loader?: readonly LoaderType[];
+	loader?: readonly LoaderEnum[];
 }
 
 const initConfigureOptions: IConfigureOptions = {
@@ -40,7 +41,7 @@ const initConfigureOptions: IConfigureOptions = {
 	autoescape: true,
 	cache: true,
 	lstripBlocks: false, // IDK ?
-	loader: ['file'],
+	loader: [LoaderEnum.file],
 };
 
 export function configure(
@@ -61,13 +62,12 @@ export function configure(
 	// const memoryLoader = new MemoryLoader([templatesPath]);
 
 	const loaders: Loader[] = [];
-	if (options.loader.includes('file'))
-		loaders.push(
-			new FileSystemLoader([templatesPath], {
-				watch: opts.watch,
-				noCache: opts.cache,
-			})
-		);
+	loaders.push(
+		new FileSystemLoader([templatesPath], {
+			watch: opts.watch,
+			noCache: opts.cache,
+		})
+	);
 	if (!loaders.length) {
 		const errMessage = 'No loader found: ' + JSON.stringify(options.loader);
 		p.err(errMessage);
@@ -75,13 +75,7 @@ export function configure(
 	}
 
 	opts.loaders = loaders;
-	e = new Environment(opts);
-
-	// if (opts && opts.express) {
-	// 	e.express(opts.express);
-	// }
-
-	return e;
+	return new Environment(opts);
 }
 
 export const reset = configure;

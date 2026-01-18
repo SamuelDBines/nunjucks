@@ -1,18 +1,43 @@
 //Done: Sun 4th Jan 2026 
 import { Token } from './types';
+import { LoaderSrcType } from './loader';
 
 export const whitespaceChars = ' \n\t\r\u00A0';
 export const delimChars = '()[]{}%*-+~/#,:|.<>=!';
 export const intChars = '0123456789';
 
-export const BLOCK_START = '{%';
-export const BLOCK_END = '%}';
-export const VARIABLE_START = '{{';
-export const VARIABLE_END = '}}';
-export const COMMENT_START = '{#';
-export const COMMENT_END = '#}';
+// export const BLOCK_START = '{%';
+// export const BLOCK_END = '%}';
+// export const VARIABLE_START = '{{';
+// export const VARIABLE_END = '}}';
+// export const COMMENT_START = '{#';
+// export const COMMENT_END = '#}';
 
-export const TOKEN_STRING = 'string';
+export const LEXER_SYMBOLS = {
+	BLOCK_START :'{%',
+	BLOCK_END : '%}',
+	VARIABLE_START : '{{',
+	VARIABLE_END : '}}',
+	COMMENT_START : '{#',
+	COMMENT_END : '#}',
+	SINGLE_QUOTE : "'",
+	DOUBLE_QUOTE : '"'
+} as const
+
+export type LexerSymbolKey = keyof typeof LEXER_SYMBOLS;
+export type LexerSymbolMap = typeof LEXER_SYMBOLS
+export type Tags = LexerSymbolMap & Record<string, string>;
+
+
+export enum LexerDataTypes {
+	INT = 'int',
+	STRING = 'string',
+	FLOAT = 'float',
+	BOOLEAN = 'boolean',
+	NONE = 'none',
+}
+
+
 export const TOKEN_WHITESPACE = 'whitespace';
 export const TOKEN_DATA = 'data';
 export const TOKEN_BLOCK_START = 'block-start';
@@ -32,6 +57,7 @@ export const TOKEN_COLON = 'colon';
 export const TOKEN_TILDE = 'tilde';
 export const TOKEN_PIPE = 'pipe';
 export const TOKEN_INT = 'int';
+export const TOKEN_STRING = 'string';
 export const TOKEN_FLOAT = 'float';
 export const TOKEN_BOOLEAN = 'boolean';
 export const TOKEN_NONE = 'none';
@@ -49,10 +75,10 @@ const token = (type: string, value: any, lineno: number, colno: number) => ({
 interface ITokenizerOpts {
 	trimBlocks?: boolean;
 	lstripBlocks?: boolean;
-	tags?: Record<string, any>;
+	tags?: Record<string, string>;
 }
 export class Tokenizer {
-	str: string = '';
+	src?: LoaderSrcType;
 	index: number = 0;
 	len: number = 0;
 	lineno: number = 0;
@@ -60,22 +86,17 @@ export class Tokenizer {
 	inCode: boolean = false;
 	trimBlocks: boolean = false;
 	lstripBlocks: boolean = false;
-	tags: Record<string, any>;
-	src: any;
-	constructor(str: string, opts: ITokenizerOpts) {
-		this.str = str;
-		this.len = str?.length;
+	tags: Tags;
+	constructor(src: LoaderSrcType, opts: ITokenizerOpts) {
+		this.src = src;
+		this.len = src?.obj?.length || 0;
 
 		opts = opts || {};
 
 		let tags = opts.tags || {};
 		this.tags = {
-			BLOCK_START: tags.blockStart || BLOCK_START,
-			BLOCK_END: tags.blockEnd || BLOCK_END,
-			VARIABLE_START: tags.variableStart || VARIABLE_START,
-			VARIABLE_END: tags.variableEnd || VARIABLE_END,
-			COMMENT_START: tags.commentStart || COMMENT_START,
-			COMMENT_END: tags.commentEnd || COMMENT_END,
+			...LEXER_SYMBOLS,
+			...tags
 		};
 
 		this.trimBlocks = !!opts.trimBlocks;
@@ -86,16 +107,15 @@ export class Tokenizer {
 		let lineno = this?.lineno;
 		let colno = this?.colno;
 		let tok: string | null;
-
+	
+		if (this.isFinished()) {
+			console.log('Is finished')
+			return null;
+		}
 		if (this.inCode) {
 			// Otherwise, if we are in a block parse it as code
 			let cur = this.current();
-
-			if (this.isFinished()) {
-				// We have nothing else to parse
-				return null;
-			} else if (cur === '"' || cur === "'") {
-				// We've hit a string
+			if (cur === this.tags.DOUBLE_QUOTE || cur === this.tags.SINGLE_QUOTE) {
 				return token(TOKEN_STRING, this._parseString(cur), lineno, colno);
 			} else if ((tok = this._extract(whitespaceChars))) {
 				// We hit some whitespace
@@ -136,7 +156,7 @@ export class Tokenizer {
 				// Special check for variable end tag (see above)
 				this.inCode = false;
 				return token(TOKEN_VARIABLE_END, tok, lineno, colno);
-			} else if (cur === 'r' && this.str.charAt(this.index + 1) === '/') {
+			} else if (cur === 'r' && this.src?.obj?.charAt(this.index + 1) === '/') {
 				// Skip past 'r/'.
 				this.forwardN(2);
 
@@ -267,13 +287,13 @@ export class Tokenizer {
 			// tags (don't use the full delimChars for optimization)
 			let beginChars =
 				this.tags.BLOCK_START.charAt(0) +
+				this.tags.BLOCK_END.charAt(0) +
 				this.tags.VARIABLE_START.charAt(0) +
+				this.tags.VARIABLE_END.charAt(0) +
 				this.tags.COMMENT_START.charAt(0) +
 				this.tags.COMMENT_END.charAt(0);
 
-			if (this.isFinished()) {
-				return null;
-			} else if (
+			if (
 				(tok = this._extractString(this.tags.BLOCK_START + '-')) ||
 				(tok = this._extractString(this.tags.BLOCK_START))
 			) {
@@ -294,6 +314,7 @@ export class Tokenizer {
 					inComment = true;
 					tok = this._extractString(this.tags.COMMENT_START);
 				}
+				console.log('Stuck in while?', tok)
 
 				// Continually consume text, breaking on the tag delimiter
 				// characters and checking to see if it's a start tag.
@@ -389,13 +410,15 @@ export class Tokenizer {
 			}
 		}
 
+		console.log(str)
+
 		this.forward();
 		return str;
 	}
 
 	_matches(str: string) {
 		if (this.index + str?.length > this.len) return null;
-		return this.str.slice(this.index, this.index + str?.length) === str;
+		return this.src?.obj?.slice(this.index, this.index + str?.length) === str;
 	}
 
 	_extractString(str: string) {
@@ -407,26 +430,17 @@ export class Tokenizer {
 	}
 
 	_extractUntil(charString: string) {
-		// Extract all non-matching chars, with the default matching set
-		// to everything
 		return this._extractMatching(true, charString || '');
 	}
 
 	_extract(charString: string) {
-		// Extract all matching chars (no default, so charString must be
-		// explicit)
 		return this._extractMatching(false, charString);
 	}
 
 	_extractMatching(breakOnMatch: boolean, charString: string) {
-		// Pull out characters until a breaking char is hit.
-		// If breakOnMatch is false, a non-matching char stops it.
-		// If breakOnMatch is true, a matching char stops it.
-
 		if (this.isFinished()) {
 			return null;
 		}
-
 		let first = charString.indexOf(this.current());
 
 		// Only proceed if the first character doesn't meet our condition
@@ -472,6 +486,7 @@ export class Tokenizer {
 
 	forwardN(n: number) {
 		for (let i = 0; i < n; i++) {
+			console.log('Forward each time:', i, n)
 			this.forward();
 		}
 	}
@@ -498,7 +513,7 @@ export class Tokenizer {
 		if (this.current() === '\n') {
 			this.lineno--;
 
-			let idx = this.src.lastIndexOf('\n', this.index - 1);
+			let idx = this.src?.obj?.lastIndexOf('\n', this.index - 1);
 			if (idx === -1) {
 				this.colno = this.index;
 			} else {
@@ -511,24 +526,22 @@ export class Tokenizer {
 
 	current() {
 		if (!this.isFinished()) {
-			return this.str.charAt(this.index);
+			return this.src?.obj?.charAt(this.index);
 		}
 		return '';
 	}
-
-	// currentStr returns what's left of the unparsed string
 	currentStr() {
 		if (!this.isFinished()) {
-			return this.str.substr(this.index);
+			return this.src?.obj?.substr(this.index);
 		}
 		return '';
 	}
 
 	previous() {
-		return this.str.charAt(this.index - 1);
+		return this.src?.obj?.charAt(this.index - 1);
 	}
 }
 
-export const lex = (str: string, opts: ITokenizerOpts) => {
+export const lex = (str: LoaderSrcType, opts: ITokenizerOpts) => {
 	return new Tokenizer(str, opts);
 };

@@ -1,9 +1,10 @@
 // DONE: Sat Jan 3
 import fs from 'fs';
 import path from 'path';
-import { _prettifyError, TemplateError, p } from './lib';
-import { compile } from './compiler';
-import { Environment, Template } from './environment';
+import { p } from './lib';
+import { compile } from './lcompiler.unused';
+import { Environment } from './environment';
+import { Template, TemplateError } from './template'
 import { precompileGlobal } from './globals';
 
 type IPrecompileOpts = {
@@ -40,19 +41,18 @@ function match(filename: string, patterns: string[]) {
 }
 
 function _precompile(src: string, name: string, env = new Environment()) {
-	const asyncFilters = env.asyncFilters;
 	const extensions = env.extensionsList;
 	let template: string;
 
 	name = name.replace(/\\/g, '/');
 
 	try {
-		template = compile(src, asyncFilters, extensions, name, {
+		template = compile(src, extensions, name, {
 			throwOnUndefined: env.throwOnUndefined,
 		});
 	} catch (err) {
 		p.err('_precompile :', err);
-		throw _prettifyError(name, false, TemplateError(err));
+		throw TemplateError(err);
 	}
 
 	return {

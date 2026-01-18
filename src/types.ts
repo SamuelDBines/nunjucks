@@ -5,7 +5,7 @@ export type Callback<E = unknown, R = unknown> = (
 	res?: R
 ) => void;
 
-type TokenType = string;
+export type TokenType = string;
 
 export interface Token {
 	type: TokenType;
@@ -29,7 +29,7 @@ export interface TokenStream {
 }
 
 export interface ParserExtension<P> {
-	tags?: string[]; // names like ["mytag", "otherTag"]
+	tags?: string[]; 
 	parse(
 		parser: P,
 		nodes: typeof import('./nodes'),

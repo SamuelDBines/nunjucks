@@ -1,17 +1,15 @@
 //TODO: Sun 4th Jan 2026 [Expand and write tests for each type.]
-import { Environment, Context } from './environment';
+import { Environment } from './environment';
+import { Context } from './context'
 import { p } from './lib';
 import {
 	Add,
 	And,
 	ArrayNode,
-	AsyncEach,
-	AsyncAll,
 	BinOp,
 	Block,
 	Caller,
 	CallExtension,
-	CallExtensionAsync,
 	Capture,
 	Case,
 	Compare,
@@ -21,14 +19,12 @@ import {
 	Div,
 	Extends,
 	Filter,
-	FilterAsync,
 	FloorDiv,
 	For,
 	FromImport,
 	FunCall,
 	Group,
 	If,
-	IfAsync,
 	Import,
 	In,
 	Include,
@@ -60,7 +56,7 @@ import {
 	Value,
 } from './nodes';
 import { collectBlocks, transform } from './transformer'
-import { Frame } from './runtime';
+import { Frame } from './frame';
 import * as Runtime from './runtime';
 import { parse } from './parser';
 type RenderResult = string;
@@ -101,8 +97,9 @@ async function evalExtends(node: Extends, st: EvalState) {
       err ? reject(err) : resolve(out)
     );
   });
-
-  const parentAst: any = transform(parse(info.src, [], st.env), []);
+	if(!info) 
+		p.warn('Info is empty',parentStr)
+  const parentAst: any = transform(parse(info.src, [], st.env));
 
   // const parentTpl = await st.env.getTemplate(parentStr,undefined, {eagerCompile:true});
 	// p.err('Parent string is: ',parentStr,  parentTpl.ast, parentTpl.root)
@@ -292,10 +289,6 @@ async function evalIf(node: If, st: EvalState) {
 	if (node.else_) return evalNode(node.else_, st);
 }
 
-async function evalIfAsync(node: IfAsync, st: EvalState) {
-	return evalIf(node as any as If, st);
-}
-
 async function evalSet(node: Set, st: EvalState) {
 	const targets = node.targets; // array of Symbol
 	let value: any;
@@ -316,8 +309,6 @@ async function evalSet(node: Set, st: EvalState) {
 		}
 	}
 }
-
-
 
 async function evalFor(node: For, st: EvalState) {
 	const frame = st.frame.push();
@@ -388,7 +379,7 @@ async function evalFor(node: For, st: EvalState) {
 }
 
 async function evalCallExtension(
-	node: CallExtension | CallExtensionAsync,
+	node: CallExtension,
 	st: EvalState
 ) {
 	const ext = st.env.getExtension(node.extname);
@@ -427,13 +418,10 @@ async function evalCallExtension(
 		}
 	}
 	const res = fn.call(ext, st.context, ...args, ...contentFns);
-
-	if (node instanceof CallExtensionAsync) {
-		return await new Promise((resolve, reject) => {
-			if (res && typeof res.then === 'function') res.then(resolve, reject);
-			else resolve(res);
-		});
-	}
+	return await new Promise((resolve, reject) => {
+		if (res && typeof res.then === 'function') res.then(resolve, reject);
+		else resolve(res);
+	});
 
 	return res;
 }
@@ -461,7 +449,6 @@ async function evalExpr(node: Node, st: EvalState): Promise<any> {
 	if (node instanceof Compare) return evalCompare(node, st);
 
 	if (node instanceof CallExtension) return evalCallExtension(node, st);
-	if (node instanceof CallExtensionAsync) return evalCallExtension(node, st);
 
 	if (node instanceof Literal) return node.value;
 	if (node instanceof Symbol) {
@@ -538,7 +525,7 @@ interface EvalState {
 	rootAst?: Root;
 	didExtend?: boolean;
 }
-async function evalNode(node: Node, st: EvalState): Promise<void> {
+export async function evalNode(node: Node, st: EvalState): Promise<void> {
 	switch (node.typename) {
 		case 'Output':
 			return evalOutput(node as Output, st);
@@ -546,8 +533,6 @@ async function evalNode(node: Node, st: EvalState): Promise<void> {
 			return evalNodeListStmt(node as NodeList, st);
 		case 'If':
 			return evalIf(node as If, st);
-		case 'IfAsync':
-			return evalIfAsync(node as IfAsync, st);
 		case 'For':
 			return evalFor(node as For, st);
 		case 'Set':
@@ -558,6 +543,19 @@ async function evalNode(node: Node, st: EvalState): Promise<void> {
 			return evalRoot(node as any as Root, st);
 		case 'Block':
   		return evalBlock(node as Block, st);
+		
+		case 'Concat':
+		case 'Or':
+		case 'And':
+		case 'Add':
+		case 'Sub':
+		case 'Mul':
+		case 'Div':
+		case 'Mod':
+		case 'Pos':
+		case 'Neg':
+		case 'Not':
+			return evalExpr(node, st)
 		default:
 			throw st.runtime.handleError('Unknown evaluation: ' +  node.typename);
 	}
@@ -581,6 +579,21 @@ export async function renderAST(
 	frame.topLevel = true;
 
 	const st: EvalState = { env, context, frame, runtime, buffer: [],rootAst: ast  };
+	await evalNode(ast, st);
+	return st.buffer.join('');
+}
+
+export async function compile(
+	env: Environment,
+	ast: Root,
+	ctx: any,
+): Promise<string> {
+	p.debug('ctx: ', ctx);
+	const context = new Context(ctx || {}, /*blocks*/ {}, env);
+	const frame = new Frame();
+	frame.topLevel = true;
+
+	const st: EvalState = { env, context, frame, runtime: Runtime, buffer: [], rootAst: ast  };
 	await evalNode(ast, st);
 	return st.buffer.join('');
 }

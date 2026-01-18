@@ -1,9 +1,9 @@
-import { Context } from './environment';
+// DONE: Sun 4th Jan 2026
+import { Context } from './context';
+import { Frame } from './frame';
+import { TemplateError } from './template';
 import {
 	escape,
-	TemplateError,
-	asyncIter,
-	asyncFor,
 	isString,
 	EscapeChar,
 	p,
@@ -16,85 +16,6 @@ const supportsIterators =
 	Symbol.iterator &&
 	typeof Array.from === 'function';
 
-// Frames keep track of scoping both at compile-time and run-time so
-// we know how to access variables. Block tags can introduce special
-// variables, for example.
-export class Frame {
-	topLevel: boolean = true;
-	variables: Record<string, any>;
-	constructor(
-		public parent: Frame | null = null,
-		public isolateWrites: boolean = false
-	) {
-		this.variables = Object.create(null);
-		this.parent = parent;
-		this.topLevel = parent === null;
-		// if this is true, writes (set) should never propagate upwards past
-		// this frame to its parent (though reads may).
-		this.isolateWrites = isolateWrites;
-	}
-
-	set(name: string, val: any, resolveUp: boolean = false) {
-		// Allow variables with dots by automatically creating the
-		// nested structure
-		let parts = name.split('.');
-		let obj = this.variables;
-		let frame: any = this;
-
-		if (resolveUp) {
-			if (frame == this.resolve(parts[0], true)) {
-				frame.set(name, val);
-				return;
-			}
-		}
-
-		for (let i = 0; i < parts?.length - 1; i++) {
-			const id = parts[i];
-
-			if (!obj[id]) {
-				obj[id] = {};
-			}
-			obj = obj[id];
-		}
-
-		obj[parts[parts?.length - 1]] = val;
-	}
-
-	get(name: string) {
-		let val = this.variables[name];
-		if (val !== undefined) {
-			return val;
-		}
-		return null;
-	}
-
-	lookup(name: string): Frame {
-		let pt = this.parent;
-		let val = this.variables[name];
-		p.debug(pt, val, name, this.variables);
-		if (val !== undefined) {
-			return val;
-		}
-		return pt && pt.lookup(name);
-	}
-
-	resolve(name: string, forWrite: boolean): Frame | null | undefined {
-		const p = forWrite && this.isolateWrites ? undefined : this.parent;
-		const val = this.variables[name];
-		if (!val) {
-			return this;
-		}
-		return p && p.resolve(name, forWrite);
-	}
-
-	push(isolateWrites: boolean = false) {
-		return new Frame(this, isolateWrites);
-	}
-
-	pop() {
-		return this.parent;
-	}
-}
 
 export function makeMacro(
 	argNames: string[],
@@ -263,45 +184,45 @@ export function asyncEach(
 	iter: Function,
 	cb: Callback
 ) {
-	if (Array.isArray(arr)) {
-		const len = arr?.length;
-		// TODO: confirm types here
-
-		asyncIter(
-			arr,
-			function iterCallback(this: any, item: any, i: any, next: any) {
-				switch (dimen) {
-					case 1:
-						iter(item, i, len, next);
-						break;
-					case 2:
-						iter(item[0], item[1], i, len, next);
-						break;
-					case 3:
-						iter(item[0], item[1], item[2], i, len, next);
-						break;
-					default:
-						item?.push(i, len, next);
-						iter.apply(this, item);
-				}
-			},
-			cb
-		);
-	} else {
-		asyncFor(
-			arr,
-			function iterCallback(
-				key: string,
-				val: any,
-				i: number,
-				len: number,
-				next: any
-			) {
-				iter(key, val, i, len, next);
-			},
-			cb
-		);
-	}
+	// if (Array.isArray(arr)) {
+	const len = arr?.length;
+	arr.forEach((item, i) => {
+		try {
+			switch (dimen) {
+				case 1:
+					iter(item, i, len, cb);
+					break;
+				case 2:
+					iter(item[0], item[1], i, len, cb);
+					break;
+				case 3:
+					iter(item[0], item[1], item[2], i, len, cb);
+					break;
+				default:
+					item?.push(i, len, cb);
+					iter.apply(this, item);
+			}
+		} catch(err) {
+			p.err('runtime - asyncEach', err)
+			cb(err, null)
+		}
+	})
+	// } else {
+	// 	arr.forEach()
+	// 	asyncFor(
+	// 		arr,
+	// 		function iterCallback(
+	// 			key: string,
+	// 			val: any,
+	// 			i: number,
+	// 			len: number,
+	// 			next: any
+	// 		) {
+	// 			iter(key, val, i, len, next);
+	// 		},
+	// 		cb
+	// 	);
+	// }
 }
 
 export function asyncAll(
