@@ -16,28 +16,6 @@ import { Frame } from './frame';
 import { Callback } from './types';
 import * as Runtime from './runtime';
 
-
-
-type RootRenderFunctionProps = (
-	env: Environment,
-	context: Context,
-	frame: typeof Frame,
-	_runtime: typeof Runtime,
-	cb: Callback
-) => void;
-
-
-
-
-// const root: RootRenderFunctionProps = (env, context, frame, runtime, cb) => {
-// 	try {
-// 		cb(null, 'hello');
-// 	} catch (e) {
-// 		cb(e, null);
-// 	}
-// };
-
-
 export function TemplateError(
 	message: string | Error,
 	lineno: number = 0,

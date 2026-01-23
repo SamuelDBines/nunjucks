@@ -14,7 +14,7 @@ Hello {{ name | upper }}
 {% endblock %}
 
 {% block carrots %}
-{% if name %}
+{% if name | client %}
   <p> Hello {{ name }} </p>
 {% else %}
   <p> No name provided </p>

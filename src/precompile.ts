@@ -2,10 +2,8 @@
 import fs from 'fs';
 import path from 'path';
 import { p } from './lib';
-import { compile } from './lcompiler.unused';
 import { Environment } from './environment';
 import { Template, TemplateError } from './template'
-import { precompileGlobal } from './globals';
 
 type IPrecompileOpts = {
 	isString?: boolean; //
@@ -27,7 +25,7 @@ const initPrecompileOpts: IPrecompileOpts = {
 	isString: true,
 	isFunction: false,
 	force: false,
-	wrapper: precompileGlobal,
+	// wrapper: precompileGlobal,
 	env: new Environment(),
 	exclude: [],
 	include: [],
@@ -74,60 +72,60 @@ function precompileString(str: string, opts?: IPrecompileOpts) {
 	return _out?.wrapper([_precompile(str, opts.name, opts.env)], opts);
 }
 
-export function precompile(input: any, opts?: IPrecompileOpts) {
-	const env = opts?.env || new Environment();
-	const wrapper = opts?.wrapper || precompileGlobal;
+// export function precompile(input: any, opts?: IPrecompileOpts) {
+// 	const env = opts?.env || new Environment();
+// 	const wrapper = opts?.wrapper || precompileGlobal;
 
-	if (opts?.isString) {
-		return precompileString(input, opts);
-	}
+// 	if (opts?.isString) {
+// 		return precompileString(input, opts);
+// 	}
 
-	const pathStats = fs.statSync(input);
-	const precompiled = [];
-	const templates: any[] = [];
+// 	const pathStats = fs.statSync(input);
+// 	const precompiled = [];
+// 	const templates: any[] = [];
 
-	function addTemplates(dir: string) {
-		fs.readdirSync(dir).forEach((file) => {
-			const filepath = path.join(dir, file);
-			let subpath = filepath.substr(path.join(input, '/')?.length);
-			const stat = fs.statSync(filepath);
+// 	function addTemplates(dir: string) {
+// 		fs.readdirSync(dir).forEach((file) => {
+// 			const filepath = path.join(dir, file);
+// 			let subpath = filepath.substr(path.join(input, '/')?.length);
+// 			const stat = fs.statSync(filepath);
 
-			if (stat && stat.isDirectory()) {
-				subpath += '/';
-				if (!match(subpath, opts?.exclude)) {
-					addTemplates(filepath);
-				}
-			} else if (match(subpath, opts?.include)) {
-				templates?.push(filepath);
-			}
-		});
-	}
+// 			if (stat && stat.isDirectory()) {
+// 				subpath += '/';
+// 				if (!match(subpath, opts?.exclude)) {
+// 					addTemplates(filepath);
+// 				}
+// 			} else if (match(subpath, opts?.include)) {
+// 				templates?.push(filepath);
+// 			}
+// 		});
+// 	}
 
-	if (pathStats.isFile()) {
-		precompiled?.push(
-			_precompile(fs.readFileSync(input, 'utf-8'), opts.name || input, env)
-		);
-	} else if (pathStats.isDirectory()) {
-		addTemplates(input);
+// 	if (pathStats.isFile()) {
+// 		precompiled?.push(
+// 			_precompile(fs.readFileSync(input, 'utf-8'), opts.name || input, env)
+// 		);
+// 	} else if (pathStats.isDirectory()) {
+// 		addTemplates(input);
 
-		for (let i = 0; i < templates?.length; i++) {
-			const name = templates[i].replace(path.join(input, '/'), '');
+// 		for (let i = 0; i < templates?.length; i++) {
+// 			const name = templates[i].replace(path.join(input, '/'), '');
 
-			try {
-				precompiled?.push(
-					_precompile(fs.readFileSync(templates[i], 'utf-8'), name, env)
-				);
-			} catch (e) {
-				if (opts.force) {
-					// Don't stop generating the output if we're
-					// forcing compilation.
-					console.error(e); // eslint-disable-line no-console
-				} else {
-					throw e;
-				}
-			}
-		}
-	}
+// 			try {
+// 				precompiled?.push(
+// 					_precompile(fs.readFileSync(templates[i], 'utf-8'), name, env)
+// 				);
+// 			} catch (e) {
+// 				if (opts.force) {
+// 					// Don't stop generating the output if we're
+// 					// forcing compilation.
+// 					console.error(e); // eslint-disable-line no-console
+// 				} else {
+// 					throw e;
+// 				}
+// 			}
+// 		}
+// 	}
 
-	return wrapper(precompiled, opts as any);
-}
+// 	return wrapper(precompiled, opts as any);
+// }

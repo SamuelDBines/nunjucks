@@ -11,7 +11,6 @@ export * as lib from './lib';
 export * as lexer from './lexer';
 export * as parser from './parser';
 export * as nodes from './nodes'
-// Maybe should be private?
 export * from './express-app'
 export * as transformer from './transformer';
 
@@ -75,6 +74,7 @@ export function configure(
 	}
 
 	opts.loaders = loaders;
+	console.log(opts)
 	return new Environment(opts);
 }
 
