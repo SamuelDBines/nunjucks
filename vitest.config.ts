@@ -9,6 +9,6 @@ export default defineConfig({
 		// 	// https://vitest.dev/config/browser/playwright
 		// 	instances: [{ browser: 'chromium' }],
 		// },
-		exclude: ['vitest-example', 'testsold', 'node_modules'],
+		exclude: ['vitest-example', 'testsold', 'tests-now-old', 'node_modules'],
 	},
 });

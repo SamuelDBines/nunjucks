@@ -19,3 +19,33 @@ const tags = (tags:any ={}) => ({
 });
 
 console.log(tags())
+
+
+const combiner = (funs: any[]) => (x: any) => {
+	funs.reduce((r, _p) => {
+		if(Array.isArray(_p)) return r.to(..._p)
+		return r.to(_p)
+	}, x)
+}
+
+type Step = (value: any, ...args: any[]) => any;
+type Pipe = {
+	value: any;
+	to: Step;
+}
+
+const pipe = (value): Pipe => ({
+	value,
+	to: (cb, ...args) => pipe(cb(value, ...args)),
+});
+
+const steps: Step[] = [
+  (x) => x.trim(),
+	[(x, n) => x.slice(0, n), 3],
+  (x) => x.toUpperCase(),
+]
+
+const res = combiner(steps)(pipe(' HELLO '))
+console.log(res)
+
+  // 

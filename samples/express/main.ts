@@ -8,8 +8,8 @@ const app = express();
 
 const viewsDir = path.join(__dirname, 'views');
 
-console.warn(viewsDir);
-const nunev = nunjucks.configure(viewsDir, {
+const nunev = nunjucks.configure({
+	path: viewsDir,
 	autoescape: true,
 });
 

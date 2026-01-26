@@ -8,7 +8,7 @@ import {
 	TemplateErr,
 	p,
 } from './lib';
-import * as filters from './filters';
+import * as filters from '../src/filters';
 import { Loader, FileSystemLoader, PrecompiledLoader, LoaderEnum } from './loader';
 import { Context } from './context';
 import { Template } from './template'
@@ -215,7 +215,6 @@ export class Environment extends EventEmitter {
 	}
 
 	getTemplate(name: string | any, cb?: Callback, opts?: getTemplateOps) {
-		p.log('Getting template');
 		let tmpl = null;
 		const parentName = opts?.parentName || null;
 		const eagerCompile = opts?.eagerCompile || false;

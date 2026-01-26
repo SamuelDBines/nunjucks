@@ -1,3 +1,4 @@
+{{ [1,2] | add(1,2) }}
 {% extends "base.html" %}
 
 {% block content %}
@@ -5,8 +6,36 @@ This is just the about page
 {% endblock %}
 
 {% block footer %}
+  {% block cat %}
+  {% for anything in value %}
+    {% block cat %}
+    {% endblock %}
+  {% endfor %}
+  {% macro anything() %}
+  {% endmacro %}
+  {% call anything() %}
+  {% endcall %}
+
+  {% with anything() %}
+  {% endwith %}
 {{ super() }}
 You really should read this!
-
+{% set poop = "hello",extraval = "meow" %}  
 {{ poop }}
-{% endblock %}
+{{ extraval }}
+{# {% endblock %}
+{% endblock %} #}
+
+{{ add(1,2) }}
+{{ add(1,2,'hello') }}
+
+{{ [1,2,3] | add }}
+{{ [1,2,3] | add(10) }}
+
+{# Comment is 
+
+{{ add(1,2) }}
+{{ add(1,2) }}
+{{ add(1,2) }}
+
+#}

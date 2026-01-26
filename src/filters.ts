@@ -8,9 +8,9 @@ import {
 	groupBy,
 	p,
 	escape,
-} from './lib';
+} from '../src.old/lib';
 
-import { copySafeness, markSafe, makeMacro } from './runtime';
+import { copySafeness, markSafe, makeMacro } from '../src.old/runtime';
 
 const normalize = (value: any, defaultValue: string = ''): string =>
 	!value ? defaultValue : value;

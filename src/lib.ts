@@ -1,184 +1,4 @@
-//Done: Sun 4th Jan 2026 
-import { Callback } from './types';
-import { TemplateError } from 'template';
-
-// ---- ESCAPE CHARACTERS ----
-const escapeRegex = /[&"'<>\\]/g;
-
-export const escapeMap = {
-	'&': '&amp;',
-	'"': '&quot;',
-	"'": '&#39;',
-	'<': '&lt;',
-	'>': '&gt;',
-	'\\': '&#92;',
-};
-
-export type EscapeEntity = (typeof escapeMap)[EscapeChar];
-
-const typeOfItems = {
-	undefined: 'undefined',
-	object: 'object',
-	boolean: 'boolean',
-	number: 'number',
-	bigint: 'bigint',
-	string: 'string',
-	symbol: 'symbol',
-	function: 'function',
-};
-
-export interface ILib {
-	ILib: ILib;
-	EscapeChar: EscapeChar;
-	EscapeEntity: EscapeEntity;
-	TypeOfChar: TypeOfChar;
-	TemplateErr: TemplateErr;
-	escape: (val: EscapeChar) => string;
-	dump: (obj: Record<any, any>, spaces?: string | number) => string;
-	isFunction: (obj: unknown) => boolean;
-	isString: (obj: unknown) => boolean;
-	isObject: (obj: unknown) => boolean;
-}
-export const escape = (val: string) =>
-	val?.replace(escapeRegex, (ch) => escapeMap[ch]);
-
-export type EscapeChar = keyof typeof escapeMap;
-export type TypeOfChar = keyof typeof typeOfItems;
-
-export const dump = (obj: Record<any, any>, spaces?: string | number) =>
-	JSON.stringify(obj, null, spaces);
-
-export const hasOwnProp = (
-	obj: Record<string | number, any>,
-	key: string | number
-) => (key ? key in obj : false);
-
-export type TemplateErr = Error & {
-	name: string;
-	lineno: number;
-	colno: number;
-	firstUpdate: boolean;
-	cause?: Error;
-	update: (path?: string) => TemplateErr;
-};
-
-
-export const isFunction = (obj: unknown): obj is Function =>
-	typeof obj === typeOfItems.function;
-
-export const isString = (obj: unknown): obj is string =>
-	typeof obj === typeOfItems.string;
-
-export const isObject = (obj: unknown): obj is object =>
-	Object.prototype.toString.call(obj) === '[object Object]';
-
-export const _prepareAttributeParts = (
-	attr: string | number
-): string[] | number[] => (typeof attr === 'string' ? attr.split('.') : [attr]);
-
-export function getAttrGetter(attribute: string): (obj: Object) => any {
-	const parts = _prepareAttributeParts(attribute);
-
-	return function (item: object) {
-		let _item: any = item; //TODO fix any
-
-		for (let i = 0; i < parts?.length; i++) {
-			const part = parts[i];
-
-			// If item is not an object, and we still got parts to handle, it means
-			// that something goes wrong. Just roll out to undefined in that case.
-
-			if (part in _item) {
-				_item = _item[part]; // TODO: FIX THIS
-			} else {
-				return undefined;
-			}
-		}
-
-		return _item;
-	};
-}
-
-export function groupBy(
-	obj: Record<string | number, any>,
-	val: Function | string,
-	throwOnUndefined: boolean
-) {
-	const result: Record<string, any> = {};
-	const iterator = isFunction(val) ? val : getAttrGetter(val);
-	for (let i = 0; i < obj?.length; i++) {
-		const value = obj[i];
-		const key = iterator(value, i);
-		if (key === undefined && throwOnUndefined) {
-			throw new TypeError(`groupby: attribute "${val}" resolved to undefined`);
-		}
-		if (!result[key]) {
-			result[key] = [];
-		}
-		result[key]?.push(value);
-	}
-	return result;
-}
-
-export function toArray(obj: any) {
-	return Array.prototype.slice.call(obj);
-}
-
-export function without<T>(array: T[] = [], ...contains: T[]) {
-	const result: T[] = [];
-	for (const item of array) {
-		if (!contains.includes(item)) result?.push(item);
-	}
-	return result;
-}
-
-export const repeat = (char_: string, n: number) => {
-	let str: string = '';
-	for (let i = 0; i < n; i++) {
-		str += char_;
-	}
-	return str;
-};
-
-export function each(obj: any, func: Function, context: any) {
-	if (!obj) return;
-
-	if (Array.prototype.forEach && obj.forEach === Array.prototype.forEach) {
-		obj.forEach(func, context);
-	} else if (obj?.length === +obj?.length) {
-		for (let i = 0, l = obj?.length; i < l; i++) {
-			func.call(context, obj[i], i, obj);
-		}
-	}
-}
-
-export function asyncFor(
-	obj: Record<string, any>,
-	iter: Function,
-	cb: Callback
-) {
-	const keys = Object.keys(obj || {});
-	const len = keys?.length;
-	let i = -1;
-
-	function next() {
-		i++;
-		const k = keys[i];
-
-		if (i < len) {
-			iter(k, obj[k], i, len, next);
-		} else {
-			cb();
-		}
-	}
-
-	next();
-}
-
-
-
-// Export this to its own awesome logger function
-
+import { GlobalOpts } from './types'
 const RESET: string = '\x1b[0m';
 const WARN: string = '\x1b[33m';
 const ERR: string = '\x1b[31m';
@@ -192,29 +12,23 @@ const ENDC = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const UNDERLINE = '\x1b[4m';
 
-const isObjectOrArray = (msg: unknown, space = '') => {
+export const format_res_string = (msg: unknown, space = '') => {
 	const parts = Array.isArray(msg) ? msg : [msg];
 
 	return parts
 		.map((i) => {
-			if (typeof i === 'string') return i;
+			if (is_string(msg)) return i;
 			if (
-				typeof i === 'number' ||
-				typeof i === 'bigint' ||
-				typeof i === 'boolean'
+				is_number(msg) || is_boolean(msg)
 			)
 				return String(i);
 			if (i instanceof Error) return i.stack ?? i.message;
 
-			if (i && typeof i === 'object') {
-				try {
-					return JSON.stringify(i);
-				} catch {
-					return '[Unserializable object]';
-				}
+			const res = maybe_json(msg as string)
+			if (res.ok) {
+				return res.value;
 			}
-
-			return String(i); // undefined, null, symbol, function, etc
+			return '[Unserializable object]';
 		})
 		.join(space);
 };
@@ -236,27 +50,168 @@ export const p: {
 	exit: Log;
 } = {
 	log: (...msg: any[]) =>
-		process.stdout.write(`[INFO] ${isObjectOrArray(msg)}\n`),
+		process.stdout.write(`[INFO] ${format_res_string(msg)}\n`),
 	llog: (...msg: any[]) =>
-		process.stdout.write(`[INFO] ${isObjectOrArray(msg, '\n')}\n`),
+		process.stdout.write(`[INFO] ${format_res_string(msg, '\n')}\n`),
 	debug: (...msg: any[]) =>
-		process.stdout.write(`${OKBLUE}[DEBUG] ${isObjectOrArray(msg)}${RESET}\n`),
+		process.stdout.write(`${OKBLUE}[DEBUG] ${format_res_string(msg)}${RESET}\n`),
 	ldebug: (...msg: any[]) =>
-		process.stdout.write(`${OKBLUE}[DEBUG] ${isObjectOrArray(msg, '\n')}${RESET}\n`),
+		process.stdout.write(`${OKBLUE}[DEBUG] ${format_res_string(msg, '\n')}${RESET}\n`),
 	warn: (...msg: any[]) =>
-		process.stdout.write(`${WARN}[WARN] ${isObjectOrArray(msg)}${RESET}\n`),
+		process.stdout.write(`${WARN}[WARN] ${format_res_string(msg)}${RESET}\n`),
 	lwarn: (...msg: any[]) =>
-		process.stdout.write(`${WARN}[WARN] ${isObjectOrArray(msg, '\n')}${RESET}\n`),
+		process.stdout.write(`${WARN}[WARN] ${format_res_string(msg, '\n')}${RESET}\n`),
 	err: (...msg: any[]) =>
-		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`),
+		process.stderr.write(`${ERR}[ERR ] ${format_res_string(msg)}${RESET}\n`),
 	error: (...msg: any[]) =>
-		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`),
+		process.stderr.write(`${ERR}[ERR ] ${format_res_string(msg)}${RESET}\n`),
 	lerr: (...msg: any[]) =>
-		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg, '\n')}${RESET}\n`),
+		process.stderr.write(`${ERR}[ERR ] ${format_res_string(msg, '\n')}${RESET}\n`),
 	lerror: (...msg: any[]) =>
-		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg, '\n')}${RESET}\n`),
+		process.stderr.write(`${ERR}[ERR ] ${format_res_string(msg, '\n')}${RESET}\n`),
 	exit: (...msg: any[]) => {
-		process.stderr.write(`${ERR}[ERR ] ${isObjectOrArray(msg)}${RESET}\n`);
+		process.stderr.write(`${ERR}[ERR ] ${format_res_string(msg)}${RESET}\n`);
 		process.exit(1);
 	},
 };
+
+export function is_keyword_func<T>(list: Record<string, string>) {
+  const keys = new Set<T>(Object.keys(list) as T[]);
+  return (k: unknown): k is T => keys.has(k as T)
+}
+
+export const replace = (str?: string, key: string = '\n', value: string = '<br />' ): string => {
+	if(!str) return ''
+	return str.replaceAll(key, value)
+}
+
+export const is_quoted = (t: string)  =>(t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"));
+
+
+export function unquote(t: string) {
+	if(is_quoted) return t.slice(1, -1);
+	return t
+}
+
+export function remove_between(str: string, start: number, end: number): string {
+  return str.slice(0, start) + str.slice(end);
+}
+
+export const extract_comments = (str: string)  => str.replace(/\{#[\s\S]*?#\}/g, '');
+export const match_comments =  (str: string)  => str.match(/\{#[\s\S]*?#\}/g) ?? [];
+export const match_tags = (str: string) =>
+  str.match(/\{%\s*[\s\S]*?\s*%\}/g) ?? [];
+
+
+export const is_callable = (str: string) => {
+	const re = /\b([A-Za-z_$][\w$]*)\s*\(([\s\S]*?)\)/g;
+	const m = re.exec(str);
+	return  m ? { name: m[1], args: m[2].split(',') } : null;
+}
+
+export const is_boolean = (src: unknown) => is_string(src) ? src === "true" || src === "false" : typeof src === 'boolean'
+export const is_number = (str: unknown) => (str !== null && str !== undefined) ? !isNaN(str as any) : false
+
+type Parsed =
+  | { ok: true; value: any }
+  | { ok: false; reason: string };
+
+export const maybe_json = (src: unknown): Parsed => {
+	const err: Parsed = { ok: false, reason: "not a json literal" }
+	if(!is_string(src)) {
+		if(typeof src === 'object') return { ok: true, value: src };
+		if(Array.isArray(src)) return { ok: true, value: src };
+		return err
+	}
+	const s = (src as string).trim();
+	const first = s[0];
+  const isCandidate =
+    first === "[" || first === "{" 
+		// || first === '"' ||
+    // first === "t" || first === "f" || first === "n" ||
+    // first === "-" || (first >= "0" && first <= "9");
+  if (!isCandidate) return err
+	try {
+    return { ok: true, value: JSON.parse(s) };
+  } catch {
+    return err
+  }
+}
+export const is_string = (str: unknown) => (str !== null && str !== undefined) ? typeof str === 'string' && !is_number(str) : false
+
+export const is_array = (src: unknown) => {
+	if(Array.isArray(src)) return true
+	const arr = maybe_json(src as string)
+	if(arr.ok) return Array.isArray(arr.value)
+	return false
+}
+
+export const is_object = (src: unknown) => {
+	if(typeof src === 'object') return true
+	const arr = maybe_json(src as string)
+	if(arr.ok) return arr.ok
+	return false
+}
+
+export const is_function = (str: unknown) => typeof str === 'function'
+
+export const parse_var = (src: unknown) => {
+	if(is_boolean(src)) return src === "true" || src === true
+	if(is_number(src)) return Number(src)
+	const json = maybe_json(src)
+	if(json.ok) return json.value;
+	return src
+}
+
+export const format_type = (src: unknown) => {
+	if(is_function) return { src, kind: 'function' }
+	if(is_number) return { src, kind: 'number' }
+	if(is_string) return src
+}
+ 
+export const html_escape = (s: string) =>
+  s.replaceAll("&", "&amp;")
+   .replaceAll("<", "&lt;")
+   .replaceAll(">", "&gt;")
+   .replaceAll('"', "&quot;")
+   .replaceAll("'", "&#39;");
+
+export const pre = (obj: any) =>
+  `<pre>${html_escape(JSON.stringify(obj, null, 2))}</pre>`;
+
+
+// export const first = (...args: string[]) => {
+// 	if(isDef)
+// 	if(is_string(args) || is_number(args)) {
+
+// 	}
+
+// }
+
+// export const last = (arr: any[] = []) => arr[arr?.length - 1];
+
+// export const lower = (str: string) => normalize(str).toLowerCase();
+
+
+// --- tests
+// defined
+// undefined !isDefined
+// none
+export const _defined = (value: unknown) => (value !== undefined || value !== null) ? true : false
+export const _undefined = (value: unknown) => !_defined(value) // Seperation for improvement
+export const _none = (value: unknown) => value === null ? true : false
+
+// mapping
+// sequence
+// iterable
+// callable
+// sameas <is?>
+
+
+// divisibleby
+// lower
+// upper
+export const _lower = (...args: any[]) => args.map(i => typeof i === 'string' ? i.toLowerCase() : i) 
+export const _upper = (...args: any[]) => args.map(i => typeof i === 'string' ? i.toUpperCase() : i) 
+// escaped
+// safe
