@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>{% block title %}Base Title{% endblock %}</title>
+</head>
+<body>
+  <header>
+    {% block header %}
+      <h1>Site Header</h1>
+      {% if user %}
+        <p>Welcome, {{ user.name }}</p>
+      {% else %}
+        <p>Welcome, guest</p>
+      {% endif %}
+    {% endblock %}
+  </header>
+
+  <main id="main">
+    {% block content %}
+      <p>Base content…</p>
+
+      {% block content_inner %}
+        <p>Base inner content…</p>
+      {% endblock %}
+    {% endblock %}
+  </main>
+
+  <footer>
+    {% block footer %}
+      <small>Base footer</small>
+    {% endblock %}
+  </footer>
+</body>
+</html>

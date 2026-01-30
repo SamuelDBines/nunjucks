@@ -1,0 +1,56 @@
+{% extends "base.njk" %}
+
+{% macro badge(text) %}
+  <span class="badge">{{ text }}</span>
+{% endmacro %}
+
+{% block title %}
+  About Page — {{ super() }}
+{% endblock %}
+
+{% block header %}
+  {{ super() }}
+  <nav>
+    <a href="/">Home</a>
+    <a href="/about" aria-current="page">About</a>
+  </nav>
+{% endblock %}
+
+{% block content %}
+  <section>
+    <h2>About</h2>
+
+    {% set items = ["1","2","2"] %}
+    <ul>
+      {% for it in items %}
+        <li>{{ badge(it) }}</li>
+      {% endfor %}
+    </ul>
+
+    {% if user and user.isAdmin %}
+      <p>Admin mode</p>
+    {% elif user %}
+      <p>Signed in</p>
+    {% else %}
+      <p>Anonymous</p>
+    {% endif %}
+
+    {% with x = "scoped-value" %}
+      <p>with: {{ x }}</p>
+    {% endwith %}
+
+    {% call badge("called") %}
+      ignored-inner-for-this-demo
+    {% endcall %}
+
+    {% block content_inner %}
+      <p>Inner override.</p>
+      <p>Bring base inner too:</p>
+      {{ super() }}
+    {% endblock %}
+  </section>
+{% endblock %}
+
+{% block footer %}
+  <small>Child footer. © 2026</small>
+{% endblock %}

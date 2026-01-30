@@ -10,7 +10,6 @@ const viewsDir = path.join(__dirname, 'views');
 
 const nunev = nunjucks.configure({
 	path: viewsDir,
-	autoescape: true,
 });
 
 nunev.express(app)
@@ -33,6 +32,10 @@ app.get('/', function (req, res) {
 
 app.get('/about', function (req, res) {
 	res.render('about.html');
+});
+
+app.get('/test', function (req, res) {
+	res.render('test', { items: [1,2,4] });
 });
 
 app.listen(PORT, function () {

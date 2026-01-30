@@ -31,8 +31,6 @@ export type LoaderResponse = {
 	read: (name: string) => { err?: string, res: string };
 }
 
-
-
 export type action_name = 'keyword' | 'var' | 'data' | 'pipe' | 'call' | 'lit' | 'sym'
 export type param_action = {
 	name: action_name
@@ -45,8 +43,6 @@ type statement_handler_type<T = void> = (str: string,  actions: param_action[], 
 
 export type pipe_fn = statement_handler_type
 
-
-type Scope = Record<string, any>
 export interface GlobalOpts {
 	loader: LoaderResponse
 	lex: Lex
@@ -55,5 +51,4 @@ export interface GlobalOpts {
 	files: Record<string, string>
 	ctx: Record<string, any>
 	vars: Record<string, any>
-	scope?: Scope
 }

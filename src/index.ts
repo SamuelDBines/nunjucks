@@ -1,176 +1,99 @@
-import path from 'node:path'
-import fs from 'node:fs'
-import { p, is_quoted, unquote, is_callable } from './lib'
-import { Loader, FileSystemLoader } from './loader'
-import { LexerType, Callback, GlobalOpts, Lexer, action_name, param_action, LexResponse } from './types'
-import { lex_init } from './lexer'
-import { keywords, is_keyword, _eval, fns} from './eval'
+import path from "node:path";
+import type { Callback, GlobalOpts, LexerType, LexResponse, Lexer, param_action, action_name } from "./types";
+import { FileSystemLoader, type Loader } from "./loader";
+import { lex_init } from "./lexer";
+import { _eval, fns } from "./eval";
+import { p } from "./lib";
 import { compileTemplate } from "./compiler";
 
+export const LEXER_SYMBOLS = {
+  START: "{",
+  END: "}",
+} as const;
+
 interface IConfigureOptions {
-	path?: string;
-	outpath?: string;
-	throwOnUndefined?: boolean;
-	dev?: boolean;
-	autoescape?: boolean;
-	watch?: boolean;
-	cache?: boolean;
-	loader: Loader;
-	_lexer?: Partial<Lexer>
-	ext?: string;
+  path?: string;
+  dev?: boolean;
+  loader: Loader;
+  _lexer?: Partial<Lexer>;
+  ext?: string;
 }
 
 const initConfigureOptions: IConfigureOptions = {
-	path: 'views',
-	outpath: 'compiled',
-	throwOnUndefined: false,
-	watch: false,
-	dev: true,
-	autoescape: true,
-	cache: true,
-	loader: FileSystemLoader,
-	ext: '.njk'
+  path: "views",
+  dev: true,
+  loader: FileSystemLoader,
+  ext: ".njk",
 };
-const LEXER_SYMBOLS = {
-  START: '{',
-	END: '}',
-	BLOCK_START :'{%',
-	BLOCK_END : '%}',
-	VARIABLE_START : '{{',
-	VARIABLE_END : '}}',
-	COMMENT_START : '{#',
-	COMMENT_END : '#}',
-	SINGLE_QUOTE : "'",
-	DOUBLE_QUOTE : '"'
-} as const
 
+export type LexerCurr = {
+  val: string;
+  start: LexerType;
+  end?: LexerType;
+};
 
+type LexerMap = Record<string, LexerCurr>;
 
-type LexerCurr = {
-	val: string
-	start: LexerType;
-	end?: LexerType
-	children?: LexerCurr[]
-	parent?: string | null
-}
-type LexerMap = Record<string, LexerCurr>
+export const readByChar = (str: string, opts: GlobalOpts): LexerCurr[] => {
+  const stack: LexerCurr[] = [];
+  if (!str) return stack;
 
-type ReformatBreaks = {
-	break: string;
-	replace: string;
-}
-const initReformatBreaks: ReformatBreaks = {
-	break:  '\n',
-	replace:'<br />'
-}
+  const len = str.length;
+  const map: LexerMap = {};
+  let row = 0;
+  let col = 0;
+  let curr: LexerType | null = null;
 
-const reformatBreaks = (str?: string, opts: Partial<ReformatBreaks> = {}): string => {
-	const options = { ...initReformatBreaks, opts };
-	if(!str) return ''
-	return str.replaceAll(options.break, options.replace)
-}
+  for (let i = 0; i < len; i++) {
+    const char = str[i];
 
-const readByChar = (str: string, opts: GlobalOpts): LexerCurr[]  => {
-	const stack: LexerCurr[] = []
-	if(!str) return stack
-	const len = str.length;
-	const map: LexerMap = {}
-	let row = 0;
-	let col = 0
-	let curr: LexerType | null = null
-	
-	for(let i = 0; i < len; i++) {
-		const char = str[i];
-		
-		if(char === LEXER_SYMBOLS.START) {
-			const _lex = opts.lexer.find(i, row, col, false)
-			if(!_lex) continue 
-			if(curr) {
-				throw `The tags are incorrect col: ${col} row:${row} - value: ${map[curr.id].val} symbol: ${curr.symbol} `
-			} 
-			curr = _lex
-			map[curr.id] = {
-				val: '',
-				start: _lex
-			}
-		}
-		if(curr && char) {
-			map[curr.id].val += char
-		}
-		if(char === LEXER_SYMBOLS.END) {
-			const _lex = opts.lexer.find(i, row, col, true)
-			if(!_lex) continue 
-			if(!curr) {
-				throw `The tags are incorrect col: ${col} row:${row} - value: ${map[curr.id].val} symbol: ${curr.symbol} `
-			}
-			if(curr?.until !== _lex.type)  p.err(`Incorrect syntax - col: ${col} row:${row}`, _lex, curr);
-			map[curr.id].end = _lex
-			stack.push(map[curr.id])
-			curr = null			
-		}
-		if(char === '\n') {
-			col++ 
-			row = 0
-		} else {
-			row++;
-		}
-	}
-	return stack;
-}
-
-const format_actions = (str: string) => {
-  const arr =  str.split(' ').filter(i => i && i);
-  const actions: param_action[] = []
-  const push_action = (name: action_name, value:string, args: string[] = [], callable: boolean = false) => actions.push({ name, value, callable, args })
-  for(var i in arr) {
-    const value = arr[i]
-    if(value === '|') {
-      push_action('pipe', value)
-      continue
+    if (char === LEXER_SYMBOLS.START) {
+      const _lex = opts.lexer.find(i, row, col, false);
+      if (!_lex) continue;
+      if (curr) throw new Error(`Bad tags col:${col} row:${row}`);
+      curr = _lex;
+      map[curr.id] = { val: "", start: _lex };
     }
-    if(is_keyword(value)) {
-      push_action('keyword', value)
-      continue
+
+    if (curr && char) map[curr.id].val += char;
+
+    if (char === LEXER_SYMBOLS.END) {
+      const _lex = opts.lexer.find(i, row, col, true);
+      if (!_lex) continue;
+      if (!curr) throw new Error(`Bad tags col:${col} row:${row}`);
+      if (curr.until !== _lex.type) p.err("Incorrect syntax", _lex, curr);
+      map[curr.id].end = _lex;
+      stack.push(map[curr.id]);
+      curr = null;
     }
-    const call = is_callable(value)
-    if(call) {
-      if(is_keyword(call.name)) 
-        push_action('keyword', call.name, call.args, true)
-      continue
+
+    if (char === "\n") {
+      col++;
+      row = 0;
+    } else {
+      row++;
     }
-    push_action('data', value)
   }
-  return actions;
-}
 
-type Replacement = {
-  start: number;
-  end: number;
-  value: string;
+  return stack;
 };
 
-const spanInner = (src: string, it: LexerCurr) => {
-  const raw = src.slice(it.start.i, it.end.i + 1);
-  const inner = raw
-    .replace(it.start.symbol, "")
-    .replace(it.end!.symbol, "")
-    .trim();
+export const spanInner = (src: string, it: LexerCurr) => {
+  const raw = src.slice(it.start.i, it.end!.i + 1);
+  const inner = raw.replace(it.start.symbol, "").replace(it.end!.symbol, "").trim();
   return { raw, inner };
 };
 
+type Replacement = { start: number; end: number; value: string };
 
 const build_replacements = (src: string, spans: LexerCurr[], opts: GlobalOpts): Replacement[] => {
   const reps: Replacement[] = [];
+
   for (const it of spans) {
     if (!it.start || !it.end) continue;
-
     const { inner } = spanInner(src, it);
 
-    // evaluate based on type
-    // - statements: "{% ... %}" (set, include, block, add, etc)
-    // - prints: "{{ ... }}" (output expression)
-    // - comments: "{# ... #}" (remove)
-    let out: any = "";
+    let out = "";
 
     if (it.start.type === opts.lexer.symbols.expression.start_type) {
       out = String(_eval(inner, opts) ?? "");
@@ -178,13 +101,11 @@ const build_replacements = (src: string, spans: LexerCurr[], opts: GlobalOpts): 
       const res = _eval(inner, opts);
       out = res == null ? "" : String(res);
     } else {
-      continue;
+      // comment or unknown
+      out = "";
     }
-    reps.push({
-      start: it.start.i,
-      end: it.end.i + 1,
-      value: out,
-    });
+
+    reps.push({ start: it.start.i, end: it.end.i + 1, value: out });
   }
 
   return reps;
@@ -192,154 +113,174 @@ const build_replacements = (src: string, spans: LexerCurr[], opts: GlobalOpts): 
 
 const apply_replacements = (src: string, reps: Replacement[]) => {
   reps.sort((a, b) => b.start - a.start);
-
   let out = src;
-  for (const r of reps) {
-    out = out.slice(0, r.start) + r.value + out.slice(r.end);
+  for (const r of reps) out = out.slice(0, r.start) + r.value + out.slice(r.end);
+  return out;
+};
+
+const truthy = (v: any) => !!v;
+
+const applyIfElse = (src: string, opts: GlobalOpts): string => {
+  // ensure lexer is set for this src
+  opts.lexer = opts.lex(src, src.length);
+
+  const spans = readByChar(src, opts).filter(
+    (s) => s.start && s.end && s.start.type === opts.lexer.symbols.statement.start_type
+  );
+
+  type Branch = { kind: "if" | "elif" | "else"; cond: string | null; bodyStart: number; bodyEnd: number };
+  type IfCtx = { ifStart: number; ifEnd: number; branches: Branch[] };
+
+  const stack: IfCtx[] = [];
+  const edits: { start: number; end: number; value: string }[] = [];
+
+  const kwAndRest = (inner: string) => {
+    const trimmed = inner.trim();
+    const m = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\b([\s\S]*)$/);
+    if (!m) return { kw: "", rest: "" };
+    return { kw: m[1], rest: (m[2] ?? "").trim() };
+  };
+
+  for (const it of spans) {
+    const { inner } = spanInner(src, it);
+    const { kw, rest } = kwAndRest(inner);
+
+    if (kw === "if") {
+      stack.push({
+        ifStart: it.start.i,
+        ifEnd: it.end!.i + 1,
+        branches: [
+          {
+            kind: "if",
+            cond: rest || null,
+            bodyStart: it.end!.i + 1,
+            bodyEnd: it.end!.i + 1, // will be fixed later
+          },
+        ],
+      });
+      continue;
+    }
+
+    if (!stack.length) continue;
+
+    const top = stack[stack.length - 1];
+
+    if (kw === "elif" || kw === "else") {
+      // close previous branch body at this tag start
+      top.branches[top.branches.length - 1].bodyEnd = it.start.i;
+
+      top.branches.push({
+        kind: kw,
+        cond: kw === "elif" ? (rest || null) : null,
+        bodyStart: it.end!.i + 1,
+        bodyEnd: it.end!.i + 1, // fixed later
+      });
+      continue;
+    }
+
+    if (kw === "endif") {
+      // close last branch
+      top.branches[top.branches.length - 1].bodyEnd = it.start.i;
+
+      const ctx = stack.pop()!;
+      const endifEnd = it.end!.i + 1;
+
+      // pick branch
+      let chosen = "";
+      for (const b of ctx.branches) {
+        if (b.kind === "else") {
+          chosen = src.slice(b.bodyStart, b.bodyEnd);
+          break;
+        }
+        const cond = b.cond ?? "";
+        const res = _eval(cond, opts);
+        if (truthy(res)) {
+          chosen = src.slice(b.bodyStart, b.bodyEnd);
+          break;
+        }
+      }
+
+      // resolve nested ifs inside the chosen body
+      chosen = applyIfElse(chosen, opts);
+
+      edits.push({
+        start: ctx.ifStart,
+        end: endifEnd,
+        value: chosen,
+      });
+
+      continue;
+    }
   }
+
+  if (!edits.length) return src;
+
+  // apply edits from end -> start so indices stay valid
+  edits.sort((a, b) => b.start - a.start);
+  let out = src;
+  for (const e of edits) {
+    out = out.slice(0, e.start) + e.value + out.slice(e.end);
+  }
+
   return out;
 };
 
 export const renderString = (src: string, opts: GlobalOpts) => {
-  const spans = readByChar(src, opts);
-  for (const it of spans) {
-    if (!it.start || !it.end) continue;
-    if (it.start.type !== opts.lexer.symbols.statement.start_type) continue;
+  const withIf = applyIfElse(src, opts);
+  opts.lexer = opts.lex(withIf, withIf.length);
 
-    const { inner } = spanInner(src, it);
-    // const actions = format_actions(inner);
-    // const firstKw = actions.find(a => a.name === "keyword")?.value;
-    // if (firstKw === "set") {
-		// 	p.log('SET is?', inner)
-    //   const handler = opts.fns.set;
-    //   handler?.(inner, actions, opts);
-    // }
-  }
-  const reps = build_replacements(src, spans, opts);
-  return apply_replacements(src, reps);
+  const spans = readByChar(withIf, opts);
+  const reps = build_replacements(withIf, spans, opts);
+  return apply_replacements(withIf, reps);
 };
 
-// const readStack = (str: string, spans: LexerCurr[] = [], _opts: GlobalOpts): LexerCurr[]  => {
-// 	if(!str) return []
-// 	for(const it of spans) {
-// 		if(!it.start || !it.end) continue;
-// 		// if (it.start.type !== "block_start" && it.start.type !== "block_end") continue;
-// 		const inner = str.slice(it.start.i, it.end.i+1).replace(it.start.symbol, '').replace(it.end.symbol, '').trim()
-// 		const actions = format_actions(inner)
-// 		const firstKw = actions.find(a => a.name === 'keyword')?.value;
-// 		if (!firstKw) continue;
+export function configure(opts: Partial<IConfigureOptions> = {}) {
+  const options: IConfigureOptions = { ...initConfigureOptions, ...opts };
 
-// 		p.debug('firstkw', firstKw)
+  const lex = lex_init({ _lexer: options._lexer }).lex;
+  const _loader = options.loader(options.path);
 
-// 		const handler = _opts.fns[firstKw];
-//     if (!handler) continue;
+  const _opts: GlobalOpts = {
+    loader: _loader,
+    lex,
+    lexer: {} as LexResponse,
+    files: {},
+    ctx: {},
+    vars: {},
+    fns: {} as any,
+  };
 
-//     handler(inner, actions, _opts);
-// 	}
-// 	return spans;
-// }
+  _opts.fns = fns(_opts);
 
-export function configure(
-	opts: Partial<IConfigureOptions> = {}
-) {
-	const options: IConfigureOptions = { ...initConfigureOptions, ...opts }
+  function express(app: any) {
+    function View(this: any, _name: string) {
+      this.name = _name;
+      this.path = _name;
 
-	const lex = lex_init({ _lexer: options._lexer }).lex
-	const _loader = options.loader(options.path)
-	const _opts = {
-		loader: _loader,
-		lex,
-		lexer: {} as LexResponse,
-		files: {},
-		ctx: {},
-		vars: {},
-		fns: {},
-		scope: {}
-	}
-	_opts.fns = fns(_opts)
-	function express(app: any) {
-		function View(_name: string) {
-			this.name = _name;
-			this.path = _name;
+      const ext = path.extname(_name);
+      this.ext = ext || options.ext || ".njk";
 
-			this.ext = options.ext || path.extname(_name);
-			p.err(_name, this.ext);
-			const respath = path.resolve(this.path)
-			if (!this.ext) {
-				this.ext = '.html';
-				this.name = _name + this.ext;
-				p.err(_name, path.extname(_name));
-			}
-			p.log('Name is', _name)
-		}
+      if (!ext) this.name = _name + this.ext;
+    }
 
-		function renderTemp(name:string, ctx: any, cb: Callback) {
-			const result = _opts.loader.read(name)
-			const str = result.err || result.res
-			_opts.files[name] = str
-			_opts.ctx = ctx;
-			_opts.lexer = _opts.lex(str, str.length)
-			const html = renderString(str, _opts);
-			// const stack = readByChar(str, _opts)
-			// readStack(str, stack, _opts)
-		
-			// const tree = buildTree(str, stack, _opts)
-			// p.warn(tree)
-			// p.warn(_opts)
-			fs.writeFileSync('./src/index.context.json', JSON.stringify(_opts, null, 2))
-			// fs.writeFileSync('./src/index.stack.json', JSON.stringify(stack, null, 2))
-			// p.error('Matched tags', match_tags(str))
-			const _html = reformatBreaks(html)
-			const dev = options.dev ? `<div style="display:flex;">
-				<div>${_html}</div>
-				<div>${reformatBreaks(str)}</div>
-			</div>` : _html
-			cb(result.err, dev)
-		}	
+    function renderTemp(name: string, ctx: any, cb: Callback) {
+      try {
+        const html = compileTemplate(name, ctx, _opts);
+        cb(null, html);
+      } catch (e: any) {
+        cb(e?.message ?? String(e));
+      }
+    }
 
+    View.prototype.render = function render(this: any, ctx: any, cb: Callback) {
+      renderTemp(this.name, ctx, cb);
+    };
 
-		View.prototype.render = function render(
-			ctx: any,
-			cb: Callback
-		) {
-			p.log('Trying to render', ctx, this.name, cb);
-			// cb(null, ctx)
-			renderTemp(this.name, ctx, cb);
-		};
+    app.set("view", View);
+    app.set("nunjucksEnv", () => {});
+  }
 
-		app.set('view', View);
-		app.set('nunjucksEnv', () => {
-			p.log('Here then')
-		});
-	}
-
-	return {
-		express
-	}
+  return { express };
 }
 
 export const reset = configure;
-
-// export const compile = (
-// 	src: any,
-// 	env: Environment,
-// 	path: any,
-// 	eagerCompile: any
-// ) => {
-// 	if (!e) {
-// 		configure();
-// 	}
-// 	return new Template(src, env, path, eagerCompile);
-// };
-// export const render = (src: string, ctx: Context, cb: Callback) => {
-// 	if (!e) {
-// 		configure();
-// 	}
-// 	return e.render(src, ctx, cb);
-// };
-// export const renderString = (src: string, ctx: Context, cb: Callback) => {
-// 	if (!e) {
-// 		configure();
-// 	}
-// 	return e.renderString(src, ctx, cb);
-// };
