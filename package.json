@@ -16,6 +16,7 @@
     "test": "vitest",
     "test:ts": "ts-node scripts/test.ts",
     "test:smoke": "npx ts-node scripts/smoke.ts",
+    "prepare:input": "npx ts-node scripts/build-input.ts",
     "test:verbose": "vitest --reporter=verbose",
     "test:browser": "vitest",
     "demo:build": "pnpm run build && node ./samples/express/main.js",

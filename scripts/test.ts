@@ -29,17 +29,20 @@ const combiner = (funs: any[]) => (x: any) => {
 }
 
 type Step = (value: any, ...args: any[]) => any;
+type StepWithArgs = [Step, ...any[]];
+type PipelineStep = Step | StepWithArgs;
+
 type Pipe = {
 	value: any;
 	to: Step;
 }
 
-const pipe = (value): Pipe => ({
+const pipe = (value: any): Pipe => ({
 	value,
-	to: (cb, ...args) => pipe(cb(value, ...args)),
+	to: (cb: Step, ...args: any[]) => pipe(cb(value, ...args)),
 });
 
-const steps: Step[] = [
+const steps: PipelineStep[] = [
   (x) => x.trim(),
 	[(x, n) => x.slice(0, n), 3],
   (x) => x.toUpperCase(),

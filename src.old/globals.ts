@@ -63,36 +63,36 @@ export function globals(): IGlobals {
 	};
 }
 
-export function precompileGlobal(
-	templates: any[],
-	opts?: { isFunction: boolean }
-) {
-	let out = '';
+// export function precompileGlobal(
+// 	templates: any[],
+// 	opts?: { isFunction: boolean }
+// ) {
+// 	let out = '';
 
-	for (let i: number = 0; i < templates?.length; i++) {
-		const name = JSON.stringify(templates[i].name);
-		const template = templates[i].template;
+// 	for (let i: number = 0; i < templates?.length; i++) {
+// 		const name = JSON.stringify(templates[i].name);
+// 		const template = templates[i].template;
 
-		out +=
-			'(function() {' +
-			'(window.nunjucksPrecompiled = window.nunjucksPrecompiled || {})' +
-			'[' +
-			name +
-			'] = (function() {\n' +
-			template +
-			'\n})();\n';
+// 		out +=
+// 			'(function() {' +
+// 			'(window.nunjucksPrecompiled = window.nunjucksPrecompiled || {})' +
+// 			'[' +
+// 			name +
+// 			'] = (function() {\n' +
+// 			template +
+// 			'\n})();\n';
 
-		if (opts?.isFunction) {
-			out +=
-				'return function(ctx, cb) { return nunjucks.render(' +
-				name +
-				', ctx, cb); }\n';
-		}
+// 		if (opts?.isFunction) {
+// 			out +=
+// 				'return function(ctx, cb) { return nunjucks.render(' +
+// 				name +
+// 				', ctx, cb); }\n';
+// 		}
 
-		out += '})();\n';
-	}
-	return out;
-}
+// 		out += '})();\n';
+// 	}
+// 	return out;
+// }
 
 // export function installCompat() {
 // 	let runtime = this.runtime;

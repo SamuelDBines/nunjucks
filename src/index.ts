@@ -1,10 +1,11 @@
 import path from 'node:path'
 import fs from 'node:fs'
-import { p, is_quoted, unquote, remove_between, match_tags, is_callable } from './lib'
+import { p, is_quoted, unquote, is_callable } from './lib'
 import { Loader, FileSystemLoader } from './loader'
 import { LexerType, Callback, GlobalOpts, Lexer, action_name, param_action, LexResponse } from './types'
 import { lex_init } from './lexer'
 import { keywords, is_keyword, _eval, fns} from './eval'
+import { compileTemplate } from "./compiler";
 
 interface IConfigureOptions {
 	path?: string;
@@ -30,8 +31,7 @@ const initConfigureOptions: IConfigureOptions = {
 	loader: FileSystemLoader,
 	ext: '.njk'
 };
-
-export const LEXER_SYMBOLS = {
+const LEXER_SYMBOLS = {
   START: '{',
 	END: '}',
 	BLOCK_START :'{%',
@@ -45,132 +45,6 @@ export const LEXER_SYMBOLS = {
 } as const
 
 
-// --- control
-// if
-// elif
-// else
-// endif
-
-// for
-// endfor
-
-// set
-// block
-// endblock
-
-// extends
-// include
-// import
-// from
-
-// macro
-// endmacro
-// call
-// endcall
-
-// raw
-// endraw
-
-// with
-// endwith
-
-// autoescape
-// endautoescape
-
-// trans
-// pluralize
-// endtrans
-
-
-
-// --- lib
-// abs
-// attr
-// batch
-// capitalize
-// center
-// default
-// dictsort
-// escape
-// first
-// float
-// groupby
-// indent
-// int
-// join
-// last
-// length
-// list
-// lower
-// map
-// max
-// min
-// random
-// replace
-// reverse
-// round
-// safe
-// select
-// slice
-// sort
-// string
-// striptags
-// sum
-// title
-// trim
-// truncate
-// upper
-// urlencode
-
-
-// --- Has only children no siblings max 2
-// for <condition> -> endfor 
-// block -> endblock
-// macro -> endmacro
-// call -> endcall
-// with -> endwith
-// autoescape -> endautoescape
-// filter <condition> -> endfilter
-// --- Has children and siblings
-// if <condition> -> elif <condition> -> else -> endif
-
-const block_conds = {
-	'for': 'endfor',
-	'block': 'endblock',
-	'call': 'endcall',
-	'macro': 'endmacro',
-	'with' : 'endwidth',
-	'autoescape': 'endautoescape',
-	'filter': 'endfilter'
-} as const
-
-type block_cond_type = keyof typeof block_conds
-
-// --- comparrasion
-// ==
-// !=
-// <
-// >
-// <=
-// >=
-
-
-// set
-
-// extends
-// include
-// import
-// from
-
-// filter
-// with
-// autoescape
-// raw
-
-
-export type LexerSymbolKey = keyof typeof LEXER_SYMBOLS;
-export type LexerSymbolMap = typeof LEXER_SYMBOLS
-export type Tags = LexerSymbolMap & Record<string, string>;
 
 type LexerCurr = {
 	val: string
@@ -242,120 +116,6 @@ const readByChar = (str: string, opts: GlobalOpts): LexerCurr[]  => {
 		}
 	}
 	return stack;
-}
-
-type TreeNode =
-  | {
-      kind: "root";
-      id: "root";
-      children: TreeNode[];
-      extends?: string;
-      includes: string[];
-    }
-  | {
-      kind: "block";
-      id: string;          
-      name: string;     
-      // start: LexerType;
-      // end?: LexerType;
-			endname?: string;
-      children: TreeNode[];
-    }
-  | {
-      kind: "tag";
-      id: string;
-      tag: string;
-      // raw: string;
-      // start: LexerType;
-      // end: LexerType;
-    };
-
-
-export function buildTree(str: string, stackSpans: LexerCurr[],  _opts: GlobalOpts) {
-  const root: TreeNode = {
-    kind: "root",
-    id: "root",
-    children: [],
-    includes: [],
-  };
-
-  const open: TreeNode[] = [root]; // stack of open nodes (root + blocks)
-
-  const current = () => open[open.length - 1] as any;
-
-  for (const it of stackSpans) {
-    if (!it.start || !it.end) continue;
-    if (it.start.type !== "block_start" && it.start.type !== "block_end") {
-      continue;
-    }
-		const tokens = str.slice(it.start.i, it.end.i).split(' ');
-
-
-
-    const kw = tokens[1]; // "extends" / "block" / "endblock" / "include" ...
-    if (!kw) continue;
-
-    if (kw === "extends") {
-      root.extends = unquote(tokens[2]); 
-      continue;
-    }
-		if (kw === "set") {
-      continue;
-    }
-    if (kw === "include") {
-      root.includes.push(tokens[2]);
-      continue;
-    }
-
-    if (kw === "block" || kw === "for" || kw === "with" || kw === "macro" || kw === 'call' ) {
-      const name = tokens[1];
-      if (!name) throw new Error(`block missing name at ${it.start.id}`);
-
-      const node: TreeNode = {
-        kind: "block",
-        id: it.start.id,
-        name,
-        // start: it.start,
-        children: [],
-      };
-
-      // attach to current parent
-      (current().children as TreeNode[]).push(node);
-
-      // push as new parent
-      open.push(node);
-      continue;
-    }
-
-    if (kw.includes("end")) {
-      const top = open[open.length - 1];
-      if (!top || top.kind !== "block") {
-        throw new Error(`endblock without open block at ${it.start.id}`);
-      }
-      (top as any).end = it.end;
-			(top as any).endname = kw;
-      open.pop();
-      continue;
-    }
-
-    // other tags if you want to keep them in tree
-    const tagNode: TreeNode = {
-      kind: "tag",
-      id: it.start.id,
-      tag: kw,
-			// inner: 'any',
-      // start: it.start,
-      // end: it.end,
-    };
-    (current().children as TreeNode[]).push(tagNode);
-  }
-
-  if (open.length !== 1) {
-    const unclosed = open.slice(1).map((n: any) => n.name ?? n.id);
-    throw new Error(`Unclosed blocks: ${unclosed.join(", ")}`);
-  }
-
-  return root;
 }
 
 const format_actions = (str: string) => {
@@ -459,25 +219,25 @@ export const renderString = (src: string, opts: GlobalOpts) => {
   return apply_replacements(src, reps);
 };
 
-const readStack = (str: string, spans: LexerCurr[] = [], _opts: GlobalOpts): LexerCurr[]  => {
-	if(!str) return []
-	for(const it of spans) {
-		if(!it.start || !it.end) continue;
-		// if (it.start.type !== "block_start" && it.start.type !== "block_end") continue;
-		const inner = str.slice(it.start.i, it.end.i+1).replace(it.start.symbol, '').replace(it.end.symbol, '').trim()
-		const actions = format_actions(inner)
-		const firstKw = actions.find(a => a.name === 'keyword')?.value;
-		if (!firstKw) continue;
+// const readStack = (str: string, spans: LexerCurr[] = [], _opts: GlobalOpts): LexerCurr[]  => {
+// 	if(!str) return []
+// 	for(const it of spans) {
+// 		if(!it.start || !it.end) continue;
+// 		// if (it.start.type !== "block_start" && it.start.type !== "block_end") continue;
+// 		const inner = str.slice(it.start.i, it.end.i+1).replace(it.start.symbol, '').replace(it.end.symbol, '').trim()
+// 		const actions = format_actions(inner)
+// 		const firstKw = actions.find(a => a.name === 'keyword')?.value;
+// 		if (!firstKw) continue;
 
-		p.debug('firstkw', firstKw)
+// 		p.debug('firstkw', firstKw)
 
-		const handler = _opts.fns[firstKw];
-    if (!handler) continue;
+// 		const handler = _opts.fns[firstKw];
+//     if (!handler) continue;
 
-    handler(inner, actions, _opts);
-	}
-	return spans;
-}
+//     handler(inner, actions, _opts);
+// 	}
+// 	return spans;
+// }
 
 export function configure(
 	opts: Partial<IConfigureOptions> = {}
@@ -493,7 +253,8 @@ export function configure(
 		files: {},
 		ctx: {},
 		vars: {},
-		fns: {}
+		fns: {},
+		scope: {}
 	}
 	_opts.fns = fns(_opts)
 	function express(app: any) {
@@ -543,7 +304,7 @@ export function configure(
 		) {
 			p.log('Trying to render', ctx, this.name, cb);
 			// cb(null, ctx)
-			renderTemp(this.name, opts, cb);
+			renderTemp(this.name, ctx, cb);
 		};
 
 		app.set('view', View);
@@ -556,8 +317,6 @@ export function configure(
 		express
 	}
 }
-
-
 
 export const reset = configure;
 

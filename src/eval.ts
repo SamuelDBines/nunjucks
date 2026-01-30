@@ -77,11 +77,6 @@ const _extend = (_opts?: GlobalOpts) => (inner: any, ...args) => {
 	_opts.files[_key] = err || res;
 	return;
 };
-// export function eval_extension(keyword: extensions_type): statement_handler_type {
-//   if (keyword === extension.extends) return _extend
-//   // if (keyword === extension.includes) return () => node.left - node.right;
-//   // p.err('Unknown extension: ', node)
-// }
 
 export const filters = {
 	lower: 'lower',
@@ -144,12 +139,21 @@ export const _eval_fn = (src: string, _opts: GlobalOpts): { step?: StepWithArgs,
   } 
   const args = src.split(' ')
   const fn = get_fn(args[0], _opts)
-  // p.log('It must ', args)
+
   if(fn) {
+		p.warn('It is key word ', args)
     const _src = src.replace(args[0], '')
     return { step: [fn, _src] }
   } 
+
+	if(fn) {
+		p.warn('It is key word ', args)
+    const _src = src.replace(args[0], '')
+    return { step: [fn, _src] }
+  } 
+	if(args.length > 1) {}
   if(args.length === 1) p.log('It must ', args)
+	p.warn('It is ELSE ', args)
   return { value: parse_var(src) }
 }
 
@@ -171,48 +175,3 @@ export const _eval = (expr: string, _opts: GlobalOpts) => {
   const res = combiner(steps)(init_value)
   return res.value
 };
-
-// statments are
-// keyword <expression>,<expression2>...n
-// keyword <expression>
-// keyword(<express>)
-// keyword empty
-
-// JOINs are
-// statement <JOINER> statement
-// statement <JOINER> statement... n
-
-// VALUES are
-// {{ VALUE }}
-
-// Conditionals
-// if statement else statement
-// statement ? true : false
-
-// const rules = {
-// 	block: {
-// 		arg_len: '1',
-// 		end: 'endblock',
-// 		allow_quotes: false,
-// 		pipeable: false,
-// 	},
-// 	if: {
-// 		arg_len: 'n', //many conditions if | if(
-// 		end: 'endif',
-// 		callable: false,
-// 		pipable: false,
-// 	},
-// 	and: {
-// 		arg_len: '0',
-// 		end: 'inline',
-// 		pipable: true,
-// 		callable: true,
-// 	},
-// 	add: {
-// 		arg_len: 'n',
-// 		end: 'inline',
-// 		pipable: true,
-// 		callable: true,
-// 	},
-// };
-

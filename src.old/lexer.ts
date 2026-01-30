@@ -37,7 +37,34 @@ export enum LexerDataTypes {
 	NONE = 'none',
 }
 
+// const block_start = 'block_start'
+// const block_end = 'block_end'
+// const variable_start = 'variable_start'
+// const variable_end = 'variable_end'
+// const comment_start = 'comment_start'
+// const comment_end = 'comment_end'
 
+// const block_start_symbol = '{%'
+// const block_end_symbol = '%}'
+// type block_symbol = '{%' | '%}'
+// const variable_start_symbol = '{{'
+// const variable_end_symbol = '}}'
+// type variable_symbol = '{{' | '}}'
+// const comment_start_symbol = '{#'
+// const comment_end_symbol = '#}'
+// type comment_symbol = '{#' | '#}'
+// const curly_bracket_start = 'curly_bracket_start'
+// const curly_bracket_start_symbol = '{'
+// const curly_bracket_end = 'curly_bracket_end'
+// const curly_bracket_end_symbol = '}'
+// const circle_bracket_start = 'circle_bracket_start'
+// const circle_bracket_start_symbol = '('
+// const circle_bracket_end = 'circle_bracket_end'
+// const circle_bracket_symbol = ')'
+// const square_bracket_start = 'square_bracket_start'
+// const square_bracket_start_symbol = '['
+// const square_bracket_end = 'square_bracket_end'
+// const square_bracket_end_symbol = ']'
 export const TOKEN_WHITESPACE = 'whitespace';
 export const TOKEN_DATA = 'data';
 export const TOKEN_BLOCK_START = 'block-start';

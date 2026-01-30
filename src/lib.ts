@@ -35,7 +35,6 @@ export const format_res_string = (msg: unknown, space = '') => {
 
 type Log = (...msg: any[]) => void;
 
-
 export const p: {
 	log: Log;
 	llog: Log;
@@ -89,7 +88,7 @@ export const is_quoted = (t: string)  =>(t.startsWith('"') && t.endsWith('"')) |
 
 
 export function unquote(t: string) {
-	if(is_quoted) return t.slice(1, -1);
+	if(is_quoted(t)) return t.slice(1, -1);
 	return t
 }
 
