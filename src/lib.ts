@@ -67,3 +67,5 @@ export const parse_var = (src: unknown) => {
 
 export const _lower = (...args: any[]) => args.map((i) => (typeof i === "string" ? i.toLowerCase() : i));
 export const _upper = (...args: any[]) => args.map((i) => (typeof i === "string" ? i.toUpperCase() : i));
+
+export const randomId = (length: number = 12) => Math.random().toString().substring(2, length+2);

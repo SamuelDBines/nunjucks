@@ -1,6 +1,5 @@
 {
   "watch": [
-    "samples/express",
     "src"
   ],
   "ext": "js,ts,html,njk",

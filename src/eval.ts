@@ -4,6 +4,31 @@ import { combiner, StepWithArgs, PipelineStep } from "./pipe";
 import { p, is_keyword_func, unquote, is_callable, _lower, _upper, parse_var } from "./lib";
 import type { GlobalOpts } from "./types";
 
+const is_ident = (s: string) => /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(s);
+
+const get_path = (obj: any, path: string) => {
+  const parts = path.split(".");
+  let cur = obj;
+  for (const p of parts) {
+    if (cur == null) return undefined;
+    cur = cur[p];
+  }
+  return cur;
+};
+
+const resolve_ident = (name: string, _opts: GlobalOpts) => {
+  if (!is_ident(name)) return undefined;
+
+  // vars wins (loop vars etc)
+  const v = get_path(_opts.vars, name);
+  if (v !== undefined) return v;
+
+  const c = get_path(_opts.ctx, name);
+  if (c !== undefined) return c;
+
+  return undefined;
+};
+
 export const extension = {
   extends: "extends",
 } as const;
@@ -82,7 +107,15 @@ export const _eval_fn = (src: string, _opts: GlobalOpts): { step?: StepWithArgs;
     return { step: [fn, rest] };
   }
 
-  return { value: parse_var(src) };
+	const lit = parse_var(src);
+
+  // if parse_var returned a string, it might be an identifier -> resolve from ctx/vars
+  if (typeof lit === "string") {
+    const resolved = resolve_ident(lit.trim(), _opts);
+    if (resolved !== undefined) return { value: resolved };
+  }
+
+  return { value: lit };
 };
 
 export const _eval = (expr: string, _opts: GlobalOpts) => {

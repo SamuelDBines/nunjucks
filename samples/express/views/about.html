@@ -1,15 +1,17 @@
 {{ [1,2] | add(1,2) }}
 
-{% extends "base.html" %}
+{% extends "base.njk" %}
 
 {% block content %}
 This is just the about page
 {% endblock %}
-
+{# 
 {% block footer %}
-  {% block cat %}
+  {% block cat %} #}
+  {% set value = [1,2,3] %}
   {% for anything in value %}
     {% block cat %}
+      test
     {% endblock %}
   {% endfor %}
   {% macro anything() %}
