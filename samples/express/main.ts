@@ -59,6 +59,15 @@ app.get('/test', function (req, res) {
 	res.render('test', { items: [1,2,4] });
 });
 
+app.get('/{*splat}', function (req, res) {
+	// res.setHeader('Content')
+	console.log(req.params.splat)
+	const file = req.params.splat
+	res.render(file, {
+		user: 'Sam',
+	});
+});
+
 app.listen(PORT, function () {
 	console.log('Express server running on http://localhost:' + PORT);
 });
