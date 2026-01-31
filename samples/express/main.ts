@@ -12,7 +12,8 @@ const nunev = nunjucks.configure({
 	path: viewsDir,
 	dev: true,
 	watch: true,
-	devRefresh: true
+	devRefresh: true,
+	detectExtensions: true,
 });
 
 nunev.express(app)
@@ -28,13 +29,26 @@ app.use(function (req, res, next) {
 });
 
 app.get('/', function (req, res) {
+	// res.setHeader('Content')
 	res.render('index', {
 		username: 'James Long <strong>copyright</strong>',
 	});
 });
+app.get('/index.json', function (req, res) {
+	// res.setHeader('Content')
+	res.render('index.json', {
+		user: 'Sam',
+	});
+});
+app.get('/index.yaml', function (req, res) {
+	// res.setHeader('Content')
+	res.render('index.yaml', {
+		user: 'Sam',
+	});
+});
 
 app.get('/about', function (req, res) {
-	res.render('about.html', { items: [1,2,4], user: { name: 'sam'} });
+	res.render('about.html', { items: [1,2,4], user: { name: 'tony' } });
 });
 
 app.get('/test-one', function (req, res) {

@@ -1,6 +1,6 @@
-import { unquote } from "./lib";
+import { unquote, spanInner } from "./lib";
 import type { GlobalOpts } from "./types";
-import { renderString, readByChar, spanInner } from "./index";
+import { renderString, readByChar } from "./render";
 
 type Replacement = { start: number; end: number; value: string };
 
@@ -33,7 +33,7 @@ const extractBlocks = (src: string, spans: any[], opts: GlobalOpts): Map<string,
     if (kw === "block") {
       const name = tokens[1];
       if (!name) continue;
-      stack.push({ name, bodyStart: it.end.i + 1 });
+      stack.push({ name, bodyStart: it.end.i });
       continue;
     }
 

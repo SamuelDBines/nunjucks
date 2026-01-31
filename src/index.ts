@@ -1,23 +1,18 @@
 import path from "node:path";
 import fs from 'node:fs'
-import type { Callback, GlobalOpts, LexerType, LexResponse, Lexer, param_action, action_name } from "./types";
+import type { Callback, GlobalOpts, LexResponse, Lexer } from "./types";
 import { FileSystemLoader, type Loader } from "./loader";
 import { lex_init } from "./lexer";
 import { _eval, fns } from "./eval";
-import { p, randomId } from "./lib";
+import { p, randomId, spanInner } from "./lib";
 import { compileTemplate } from "./compiler";
-
-
-export const LEXER_SYMBOLS = {
-  START: "{",
-  END: "}",
-} as const;
 
 interface IConfigureOptions {
   path?: string;
   dev?: boolean;
 	watch?: boolean;
-	devRefresh?: boolean;
+	devRefresh?: boolean; // Only works with HTML or NJK
+  detectExtensions?: boolean; // If the file path includes .php / .yaml etc
   loader: Loader;
   _lexer?: Partial<Lexer>;
   ext?: string;
@@ -30,107 +25,7 @@ const initConfigureOptions: IConfigureOptions = {
   ext: ".njk",
 };
 
-export type LexerCurr = {
-  val: string;
-  start: LexerType;
-  end?: LexerType;
-};
 
-type LexerMap = Record<string, LexerCurr>;
-
-export const readByChar = (str: string, opts: GlobalOpts): LexerCurr[] => {
-  const stack: LexerCurr[] = [];
-  if (!str) return stack;
-
-  const len = str.length;
-  const map: LexerMap = {};
-  let row = 0;
-  let col = 0;
-  let curr: LexerType | null = null;
-
-  for (let i = 0; i < len; i++) {
-    const char = str[i];
-
-    if (char === LEXER_SYMBOLS.START) {
-      const _lex = opts.lexer.find(i, row, col, false);
-      if (!_lex) continue;
-      if (curr) throw new Error(`Bad tags col:${col} row:${row}`);
-      curr = _lex;
-      map[curr.id] = { val: "", start: _lex };
-    }
-
-    if (curr && char) map[curr.id].val += char;
-
-    if (char === LEXER_SYMBOLS.END) {
-      const _lex = opts.lexer.find(i, row, col, true);
-      if (!_lex) continue;
-      if (!curr) throw new Error(`Bad tags col:${col} row:${row}`);
-      if (curr.until !== _lex.type) p.err("Incorrect syntax", _lex, curr);
-      map[curr.id].end = _lex;
-      stack.push(map[curr.id]);
-      curr = null;
-    }
-
-    if (char === "\n") {
-      col++;
-      row = 0;
-    } else {
-      row++;
-    }
-  }
-
-  return stack;
-};
-
-export const spanInner = (src: string, it: LexerCurr) => {
-  const raw = src.slice(it.start.i, it.end!.i + 1);
-  const inner = raw.replace(it.start.symbol, "").replace(it.end!.symbol, "").trim();
-  return { raw, inner };
-};
-
-type Replacement = { start: number; end: number; value: string };
-
-const build_replacements = (src: string, spans: LexerCurr[], opts: GlobalOpts): Replacement[] => {
-  const reps: Replacement[] = [];
-
-  for (const it of spans) {
-    if (!it.start || !it.end) continue;
-    const { inner } = spanInner(src, it);
-
-    let out = "";
-
-    if (it.start.type === opts.lexer.symbols.expression.start_type) {
-      out = String(_eval(inner, opts) ?? "");
-    } else if (it.start.type === opts.lexer.symbols.statement.start_type) {
-      const res = _eval(inner, opts);
-      out = res == null ? "" : String(res);
-    } else {
-      // comment or unknown
-      out = "";
-    }
-
-    reps.push({ start: it.start.i, end: it.end.i + 1, value: out });
-  }
-
-  return reps;
-};
-
-const apply_replacements = (src: string, reps: Replacement[]) => {
-  reps.sort((a, b) => b.start - a.start);
-  let out = src;
-  for (const r of reps) out = out.slice(0, r.start) + r.value + out.slice(r.end);
-  return out;
-};
-
-export const renderString = (src: string, opts: GlobalOpts) => {
-  // let out = applyForLoops(src, opts);
-	const out = src
-
-  opts.lexer = opts.lex(out, out.length);
-  const spans = readByChar(out, opts);
-  const reps = build_replacements(out, spans, opts);
-  return apply_replacements(out, reps);
-};
 
 const importDevscript = (options: IConfigureOptions): string => 
   options.dev && options.devRefresh
@@ -145,6 +40,32 @@ const importDevscript = (options: IConfigureOptions): string =>
         })();
       </script>`
     : "";
+
+
+const EXT_HEADERS: Record<
+  string,
+  { contentType: string; isText?: boolean }
+> = {
+  ".html": { contentType: "text/html; charset=utf-8" },
+  ".njk":  { contentType: "text/html; charset=utf-8" },
+
+  ".txt":  { contentType: "text/plain; charset=utf-8", isText: true },
+  ".yaml": { contentType: "text/yaml; charset=utf-8", isText: true },
+  ".yml":  { contentType: "text/yaml; charset=utf-8", isText: true },
+  ".json": { contentType: "application/json; charset=utf-8", isText: true },
+  ".xml":  { contentType: "application/xml; charset=utf-8", isText: true },
+
+  ".js":   { contentType: "application/javascript; charset=utf-8", isText: true },
+  ".css":  { contentType: "text/css; charset=utf-8", isText: true },
+};
+
+const applyHeadersForTemplate = (res: any, filename: string) => {
+  const ext = path.extname(filename).toLowerCase();
+  const rule = EXT_HEADERS[ext];
+  if (!rule) return { isText: false };
+  res.setHeader("Content-Type", rule.contentType);
+  return { isText: !!rule.isText };
+};
 
 export function configure(opts: Partial<IConfigureOptions> = {}) {
   const options: IConfigureOptions = { ...initConfigureOptions, ...opts };
@@ -173,12 +94,9 @@ export function configure(opts: Partial<IConfigureOptions> = {}) {
 
 	if (options.dev && options.watch) {
 		const watchDir = path.resolve(options.path ?? "views");
-
-		// watch recursively if supported
 		try {
 			fs.watch(watchDir, { recursive: true }, (_event, filename) => {
 				if (!filename) return;
-				// only bump for template-ish changes
 				if (/\.(njk|html|nunjucks)$/i.test(filename)) bump();
 			});
 			p.debug("watching", watchDir);
@@ -204,7 +122,6 @@ export function configure(opts: Partial<IConfigureOptions> = {}) {
 						last = devVersion;
 						res.write(`event: refresh\ndata: ${last}\n\n`);
 					} else {
-						// keepalive
 						res.write(`event: ping\ndata: ${Date.now()}\n\n`);
 					}
 				}, 500);
@@ -224,17 +141,28 @@ export function configure(opts: Partial<IConfigureOptions> = {}) {
 
     function renderTemp(name: string, ctx: any, cb: Callback) {
       try {
-        const html = compileTemplate(name, ctx, _opts);
-        cb(null, devScript + html);
+        const out = compileTemplate(name, ctx, _opts);  
+        const ext = path.extname(name).toLowerCase();
+        if(ext === '.njk' || ext === '.html') cb(null, devScript + out); //Only works on html
+        else  cb(null, out)
       } catch (e: any) {
         cb(e?.message ?? String(e));
       }
     }
 
     View.prototype.render = function render(this: any, ctx: any, cb: Callback) {
-			console.log(this)
+
+      if(opts.detectExtensions) {
+        const res =  ctx?._locals?.res
+        if(res) applyHeadersForTemplate(res, this.name)
+      }
       renderTemp(this.name, ctx, cb);
     };
+
+    app.use((req, res, next) => {
+      res.locals.res = res;
+      next();
+    });
 
     app.set("view", View);
     app.set("nunjucksEnv", () => {});

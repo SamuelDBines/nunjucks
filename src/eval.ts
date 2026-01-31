@@ -1,7 +1,7 @@
 import { arithmetic, arithmetic_map } from "./arithmetic";
 import { logical, logical_map } from "./logical";
 import { combiner, StepWithArgs, PipelineStep } from "./pipe";
-import { p, is_keyword_func, unquote, is_callable, _lower, _upper, parse_var } from "./lib";
+import { p, is_keyword_func, unquote, is_callable, _lower, _upper, parse_var, cleanIdent } from "./lib";
 import type { GlobalOpts } from "./types";
 
 const is_ident = (s: string) => /^[A-Za-z_$][\w$]*(\.[A-Za-z_$][\w$]*)*$/.test(s);
@@ -15,6 +15,20 @@ const get_path = (obj: any, path: string) => {
   }
   return cur;
 };
+
+const get_var = (str: string, _opts: GlobalOpts) => {
+	const key = str.trim();
+  if (key in _opts.vars) return { value: _opts.vars[key] };
+  if (key in _opts.ctx) return { value: _opts.ctx[key] };
+	if (str.includes(".")) {
+    const get = (o: any, p: string) => p.split(".").reduce((a, k) => (a == null ? undefined : a[k]), o);
+    const v = get(_opts.vars, str);
+    if (v !== undefined) return { value: v };
+    const c = get(_opts.ctx, str);
+    if (c !== undefined) return { value: c };
+  }
+	return key
+}
 
 const resolve_ident = (name: string, _opts: GlobalOpts) => {
   if (!is_ident(name)) return undefined;
@@ -92,6 +106,7 @@ export const fns = (_opts: GlobalOpts) => ({
 const get_fn = (name: string, _opts: GlobalOpts) => _opts.fns?.[name];
 
 export const _eval_fn = (src: string, _opts: GlobalOpts): { step?: StepWithArgs; value?: any } => {
+	console.log('Src is here: ', src)
   const callable = is_callable(src);
   if (callable) {
     const fn = get_fn(callable.name, _opts);
@@ -106,15 +121,25 @@ export const _eval_fn = (src: string, _opts: GlobalOpts): { step?: StepWithArgs;
     const rest = src.slice(parts[0].length).trim();
     return { step: [fn, rest] };
   }
-
+ 
 	const lit = parse_var(src);
-
-  // if parse_var returned a string, it might be an identifier -> resolve from ctx/vars
+	
   if (typeof lit === "string") {
-    const resolved = resolve_ident(lit.trim(), _opts);
-    if (resolved !== undefined) return { value: resolved };
-  }
+		const key = lit.trim()
+		if (key in _opts.vars) return { value: _opts.vars[key] };
+		if (key in _opts.ctx) return { value: _opts.ctx[key] };
 
+		// dot paths: user.isAdmin
+		if (key.includes(".")) {
+			const get = (o: any, p: string) => p.split(".").reduce((a, k) => (a == null ? undefined : a[k]), o);
+			const v = get(_opts.vars, key);
+			if (v !== undefined) return { value: v };
+			const c = get(_opts.ctx, key);
+			if (c !== undefined) return { value: c };
+		}
+    // const resolved = resolve_ident(lit.trim(), _opts);
+    // if (resolved !== undefined) return { value: resolved };
+  }
   return { value: lit };
 };
 

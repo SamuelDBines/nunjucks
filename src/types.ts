@@ -52,3 +52,9 @@ export interface GlobalOpts {
 	ctx: Record<string, any>
 	vars: Record<string, any>
 }
+
+export type LexerCurr = {
+  val: string;
+  start: LexerType;
+  end?: LexerType;
+};

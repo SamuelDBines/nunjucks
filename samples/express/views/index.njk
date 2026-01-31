@@ -1,11 +1,21 @@
-<html>
+{% for i in [1,2,3] %}
+  {{ i }}
+{% endfor %}
+
+{% set user = { "name": "tony" } %}
+{% if user and user.isAdmin %}
+  <p>Admin mode {{ user.name }}</p>
+{% elif user %}
+  <p>Signed in</p>
+{% else %}
+  <p>Anonymous</p>
+{% endif %}
 
 Hello
 world 
 from same
 "meow"
 "woof"
-"YAY"
 
 {# Hello world
 <div id="dynamic">Inside div</div> #}
@@ -19,5 +29,4 @@ Hello, {{ username | default('poop') | safe }}! This is just some content.
 
 <div id="dynamic"></div>
 {% endblock %} #}
-
-</html>
+Dog

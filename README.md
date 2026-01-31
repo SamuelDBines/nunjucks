@@ -53,3 +53,8 @@ Contributions are always welcome! Before you submit an issue or pull request, pl
 [github-actions-url]: https://github.com/mozilla/nunjucks/actions
 [codecov-image]: https://img.shields.io/codecov/c/gh/mozilla/nunjucks.svg
 [codecov-url]: https://codecov.io/gh/mozilla/nunjucks/branch/master
+
+
+
+Nunjucks extend
+<!-- https://github.com/douglaszaltron/nunjucks-vscode-extensionpack/blob/master/assets/syntaxes/njk.json -->

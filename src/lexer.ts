@@ -38,7 +38,7 @@ export const lex_init = (opts: { _lexer?: Partial<Lexer> }) => {
   const lex: Lex = (str: string, len: number) => {
     const next = (i: number, isPrev = false) => {
       if (isPrev && i - 1 >= 0) return str[i - 1];
-      if (!isPrev && i + 1 < len) return str[i + 1];
+      if (!isPrev && i  < len) return str[i + 1];
       return null;
     };
 
