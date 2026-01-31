@@ -1,3 +1,6 @@
 indet:
-  name": "{{ user }}"
-  yesthatsright: "{{ user }}"
+  {% for i in [1,2,3] %}
+  - name": "{{ user }}-{{ i }}"
+    yesthatsright: "{{ user }}"
+  {% endfor %}
+  

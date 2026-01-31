@@ -62,7 +62,7 @@ app.get('/test', function (req, res) {
 app.get('/{*splat}', function (req, res) {
 	// res.setHeader('Content')
 	console.log(req.params.splat)
-	const file = req.params.splat
+	const file = req.params.splat.join('/')
 	res.render(file, {
 		user: 'Sam',
 	});

@@ -97,7 +97,8 @@ export function configure(opts: Partial<IConfigureOptions> = {}) {
 		try {
 			fs.watch(watchDir, { recursive: true }, (_event, filename) => {
 				if (!filename) return;
-				if (/\.(njk|html|nunjucks)$/i.test(filename)) bump();
+				// if (/\.(njk|html|nunjucks)$/i.test(filename)) 
+        bump();
 			});
 			p.debug("watching", watchDir);
 		} catch (e) {
